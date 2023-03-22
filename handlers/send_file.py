@@ -41,5 +41,5 @@ async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
     await asyncio.sleep(1800)
     try:
         await sent_message.delete()
-    #except Exception as e:
-        #print(f"Error deleting message {sent_message.message_id}: {e}")
+    except Exception as e:
+        print(f"Error deleting message {sent_message.message_id}: {e}")
