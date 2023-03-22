@@ -9,7 +9,8 @@ from handlers.helpers import str_to_b64
 
 
 async def reply_forward(message: Message, file_id: int):
-    await message.reply_text(
+    try:
+        await message.reply_text(
             f"**Files will be Deleted After 30 min**\n"
             f"__To Retrive the Stored File, just again open the link!__\n"
             f"**Link:** https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(file_id))}",
