@@ -11,7 +11,7 @@ from handlers.helpers import str_to_b64
 async def reply_forward(message: Message, file_id: int):
     try:
         await message.reply_text(
-            f"**Files will be Deleted After 30 min**\n"
+            f"**Files will be Deleted After 1 min**\n"
             f"__To Retrive the Stored File, just again open the link!__\n"
             f"**Link:** https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(file_id))}",
             disable_web_page_preview=True, quote=True)
@@ -36,10 +36,10 @@ async def media_forward(bot: Client, user_id: int, file_id: int):
 async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
     sent_message = await media_forward(bot, user_id, file_id)
     await reply_forward(message=sent_message, file_id=file_id)
-    await asyncio.sleep(2)
+    #await asyncio.sleep(2)
 
 # Delete the message after 30 minutes
-    await asyncio.sleep(1800)
+    await asyncio.sleep(60)
     try:
         await sent_message.delete()
     except Exception as e:
