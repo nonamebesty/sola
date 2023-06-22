@@ -10,6 +10,13 @@ from handlers.helpers import str_to_b64
 
 async def reply_forward(message: Message, file_id: int):
     try:
+        #Asuran
+        # get media type
+        media = message.document or message.video or message.audio or message.photo
+        # get file name
+        file_name = media.file_name if media.file_name else ""
+        # get caption (if any)
+        caption = message.caption if media.file_name else ""
         await message.reply_text(
             f"**Files will be Deleted After 2 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
