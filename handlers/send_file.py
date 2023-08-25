@@ -40,9 +40,9 @@ async def media_forward(bot: Client, user_id: int, file_id: int):
         return media_forward(bot, user_id, file_id)
 
     
-async def delete_file(file_id: int):
+#async def delete_file(file_id: int):
 
-    await asyncio.sleep(300)  # wait for 2 minutes
+ #   await asyncio.sleep(300)  # wait for 2 minutes
 
     # Delete the file using the file ID
 
@@ -55,7 +55,7 @@ async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
         #await asyncio.sleep(2)
 
 # Delete the message after 2 minutes
-    await asyncio.sleep(120)
+    await asyncio.sleep(300)
     try:
         await sent_message.delete()
     except Exception as e:
