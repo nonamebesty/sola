@@ -39,13 +39,10 @@ async def media_forward(bot: Client, user_id: int, file_id: int):
         await asyncio.sleep(e.value)
         return media_forward(bot, user_id, file_id)
 
-async def auto_delete_thread(bot, msg):
-    await asyncio.sleep(300)
-    return await bot.delete_messages(msg.chat.id, msg.id)
     
-#async def delete_file(file_id: int):
+async def delete_file(file_id: int):
 
-    #await asyncio.sleep(120)  # wait for 2 minutes
+    await asyncio.sleep(300)  # wait for 2 minutes
 
     # Delete the file using the file ID
 
@@ -55,15 +52,11 @@ async def auto_delete_thread(bot, msg):
 async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
     sent_message = await media_forward(bot, user_id, file_id)
     await reply_forward(message=sent_message, file_id=file_id)
-        await asyncio.sleep(2)
-        delete = threading.Thread(
-        target=lambda: asyncio.run(auto_delete_thread(bot, sent_message))
-    )
-    delete.start()
+        #await asyncio.sleep(2)
 
 # Delete the message after 2 minutes
-    #await asyncio.sleep(120)
-    #try:
-        #await sent_message.delete()
-    #except Exception as e:
-        #print(f"Error deleting message {sent_message.message_id}: {e}")
+    await asyncio.sleep(120)
+    try:
+        await sent_message.delete()
+    except Exception as e:
+        print(f"Error deleting message {sent_message.message_id}: {e}")
