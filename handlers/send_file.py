@@ -18,7 +18,7 @@ async def reply_forward(message: Message, file_id: int):
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         await message.reply_text(
-            f"**Files will be Deleted After 2 min**\n\n"
+            f"**Files will be Deleted After 5 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
             f"**{caption}\n\nLink:** https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(file_id))}",
             disable_web_page_preview=True, quote=True)
@@ -38,10 +38,14 @@ async def media_forward(bot: Client, user_id: int, file_id: int):
     except FloodWait as e:
         await asyncio.sleep(e.value)
         return media_forward(bot, user_id, file_id)
-    
-async def delete_file(file_id: int):
 
-    await asyncio.sleep(120)  # wait for 2 minutes
+async def auto_delete_thread(bot, msg):
+    await asyncio.sleep(300)
+    return await bot.delete_messages(msg.chat.id, msg.id)
+    
+#async def delete_file(file_id: int):
+
+    #await asyncio.sleep(120)  # wait for 2 minutes
 
     # Delete the file using the file ID
 
@@ -51,11 +55,15 @@ async def delete_file(file_id: int):
 async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
     sent_message = await media_forward(bot, user_id, file_id)
     await reply_forward(message=sent_message, file_id=file_id)
-        #await asyncio.sleep(2)
+        await asyncio.sleep(2)
+        delete = threading.Thread(
+        target=lambda: asyncio.run(auto_delete_thread(bot, sent_message))
+    )
+    delete.start()
 
 # Delete the message after 2 minutes
-    await asyncio.sleep(120)
-    try:
-        await sent_message.delete()
-    except Exception as e:
-        print(f"Error deleting message {sent_message.message_id}: {e}")
+    #await asyncio.sleep(120)
+    #try:
+        #await sent_message.delete()
+    #except Exception as e:
+        #print(f"Error deleting message {sent_message.message_id}: {e}")
