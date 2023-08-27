@@ -11,6 +11,19 @@ from pyrogram.types import (
 from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
 
+def generate_random_alphanumeric():
+    """Generate a random 8-letter alphanumeric string."""
+    characters = string.ascii_letters + string.digits
+    random_chars = ''.join(random.choice(characters) for _ in range(8))
+    return random_chars
+
+def get_short(url):
+    rget = requests.get(f"https://{Config.SHORTLINK_URL}/api?api={Config.SHORTLINK_API}&url={url}&alias={generate_random_alphanumeric()}")
+    rjson = rget.json()
+    if rjson["status"] == "success" or rget.status_code == 200:
+        return rjson["shortenedUrl"]
+    else:
+        return url
 
 def humanbytes(size):
     # https://stackoverflow.com/a/49361727/4723940
@@ -109,8 +122,9 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         share_link = f"https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(file_er_id)}"
+        short_link = await get_short(share_link)
         await editable.edit(
-            f"**{caption} - {file_size}\n\nLink:** {share_link}",
+            f"**{caption} - {file_size}\n\nLink:** {short_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
                  [InlineKeyboardButton("Bots Channel", url="https://telegram.me/JAsuranBots"),
