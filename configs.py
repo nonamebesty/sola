@@ -16,8 +16,8 @@ class Config(object):
 	BANNED_USERS = set(int(x) for x in os.environ.get("BANNED_USERS", "1234567890").split())
 	FORWARD_AS_COPY = bool(os.environ.get("FORWARD_AS_COPY", True))
 	BROADCAST_AS_COPY = bool(os.environ.get("BROADCAST_AS_COPY", True))
-	SHORTLINK_URL = environ.get('SHORTLINK_URL', '')
-	SHORTLINK_API = environ.get('SHORTLINK_API', '')
+	SHORTLINK_URL = environ.get('SHORTLINK_URL', 'tnlink.in')
+	SHORTLINK_API = environ.get('SHORTLINK_API', '003db0d0a2e56943b93dc0abd80e1260a17166c8')
 	BANNED_CHAT_IDS = list(set(int(x) for x in os.environ.get("BANNED_CHAT_IDS", "-1001362659779 -1001255795497").split()))
 	OTHER_USERS_CAN_SAVE_FILE = bool(os.environ.get("OTHER_USERS_CAN_SAVE_FILE", True))
 	ABOUT_BOT_TEXT = f"""
