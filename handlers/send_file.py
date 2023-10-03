@@ -47,4 +47,4 @@ async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
 
 async def delete_after_delay(message, delay):
     await asyncio.sleep(delay)
-    await message.delete()
+    await send_message.delete()
