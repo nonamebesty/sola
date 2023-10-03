@@ -49,3 +49,6 @@ async def delete_after_delay(message, delay):
     await asyncio.sleep(delay)
     try:
         await sent_message.delete()
+    except Exception as e:
+        print(f"Error deleting message {sent_message.message_id}: {e}")
+
