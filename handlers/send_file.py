@@ -18,6 +18,7 @@ async def reply_forward(message: Message, file_id: int):
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         await message.reply_text(
+            f"**Kindly Subscribe and Support My Youtube Channel: https://www.youtube.com/@JAsuranvideos**\n\n"
             f"**Files will be Deleted After 15 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
             f"**{caption}\n\nLink:** https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(file_id))}",
