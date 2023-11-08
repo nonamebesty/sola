@@ -18,7 +18,7 @@ def duration(length):
     length %= 60
     seconds = length  # calculate in seconds 
     return hours, mins, seconds 
-    hours, mins, seconds = duration(length)
+    hours, mins, seconds = duration(hours:mins:seconds)
 
 def humanbytes(size):
     # https://stackoverflow.com/a/49361727/4723940
