@@ -13,10 +13,11 @@ async def reply_forward(message: Message, file_id: int):
         #Asuran
         # get media type
         media = message.document or message.video or message.audio or message.photo
+        media1 = message.video or message.audio
         # get file name
         file_name = media.file_name if media.file_name else ""
         # get file duration
-        file_duration = media.duration if media.duration else ""
+        duration = TimeFormatter(media1.duration * 1000)
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         await message.reply_text(
