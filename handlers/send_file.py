@@ -16,7 +16,7 @@ async def reply_forward(message: Message, file_id: int):
         # get file name
         file_name = media.file_name if media.file_name else ""
         # get file duration
-        file_duration = time.file_duration if time.file_duration else ""
+        file_duration = self.duration if self.duration else ""
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         await message.reply_text(
