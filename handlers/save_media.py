@@ -115,10 +115,11 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         #Asuran
         # get media type
         media = message.document or message.video or message.audio or message.photo
+        media1 = message.video or message.audio
         # get file name
         file_name = media.file_name if media.file_name else ""
         # get file duration
-        duration = TimeFormatter(media.duration * 1000)
+        duration = TimeFormatter(media1.duration * 1000)
         
         # get file size
         file_size = humanbytes(media.file_size)
