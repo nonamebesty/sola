@@ -105,7 +105,7 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         # get file name
         file_name = media.file_name if media.file_name else ""
         # get file duration
-        file_duration = self.duration if self.duration else ""
+        file_duration = media.duration if media.duration else ""
         # get file size
         file_size = humanbytes(media.file_size)
         # get caption (if any)
