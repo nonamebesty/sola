@@ -18,7 +18,7 @@ def duration(length):
     length %= 60
     seconds = length  # calculate in seconds 
     return hours, mins, seconds 
-    hours, mins, seconds = duration_detector(int(totalsec))
+    hours, mins, seconds = duration(length)
 
 def humanbytes(size):
     # https://stackoverflow.com/a/49361727/4723940
@@ -125,7 +125,7 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         caption = message.caption if media.file_name else ""
         share_link = f"https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(file_er_id)}"
         await editable.edit(
-            f"**{caption} - {file_size} [('⏰: {}:{}:{}'.format(hours, mins, seconds)]\n\nLink:** {share_link}",
+            f"**{caption} - {file_size} [('⏰: {hours}:{mins}:{seconds}'.format(hours, mins, seconds)]\n\nLink:** {share_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
                  [InlineKeyboardButton("Bots Channel", url="https://telegram.me/JAsuranBots"),
