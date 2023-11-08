@@ -11,6 +11,13 @@ from pyrogram.types import (
 from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
 
+def duration(length): 
+    hours = length // 3600  # calculate in hours 
+    length %= 3600
+    mins = length // 60  # calculate in minutes 
+    length %= 60
+    seconds = length  # calculate in seconds 
+    return hours, mins, seconds 
 
 def humanbytes(size):
     # https://stackoverflow.com/a/49361727/4723940
@@ -24,6 +31,8 @@ def humanbytes(size):
         size /= power
         n += 1
     return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
+
+
     
 async def forward_to_channel(bot: Client, message: Message, editable: Message):
     try:
@@ -105,7 +114,8 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         # get file name
         file_name = media.file_name if media.file_name else ""
         # get file duration
-        file_duration = media.duration if media.duration else ""
+        #file_duration = media.duration if media.duration else ""
+        file_duration = duration(media.file_duration)
         # get file size
         file_size = humanbytes(media.file_size)
         # get caption (if any)
