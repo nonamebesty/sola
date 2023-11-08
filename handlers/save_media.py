@@ -17,7 +17,7 @@ def duration(length):
     mins = length // 60  # calculate in minutes 
     length %= 60
     seconds = length  # calculate in seconds 
-    return hours, mins, seconds 
+    return hours:mins:seconds 
 
 def humanbytes(size):
     # https://stackoverflow.com/a/49361727/4723940
