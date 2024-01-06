@@ -36,7 +36,7 @@ async def reply_forward(message: Message, file_id: int):
             f"**Kindly Subscribe and Support My Youtube Channel: https://www.youtube.com/@JAsuranvideos**\n\n"
             f"**Files will be Deleted After 15 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
-            f"**{caption}\n\n[⏰ {duration}]\n\nLink:** https://telegram.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(file_id))}",
+            f"**{caption}\n\n[⏰ {duration}]\n\nLink:** https://asumoviesharesbot.jasurun.workers.dev?start=JAsuran_{str_to_b64(str(file_id))}",
             disable_web_page_preview=True, quote=True)
     except FloodWait as e:
         await asyncio.sleep(e.value)
