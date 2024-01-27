@@ -7,8 +7,8 @@ import os
 class Config(object):
 	API_ID = 1923471
 	API_HASH = "fcdc178451cd234e63faefd38895c991"
-	BOT_TOKEN = "6900669430:AAE_eChVQbFKzb4cWKuaPGySEah6W3shNG4"
-	BOT_USERNAME = "asumoviesharesbot"
+	BOT_TOKEN = "6940019270:AAEFdYya-9ZoDrm9fBxNKtLoAkPrzYPjncQ"
+	BOT_USERNAME = "asumovieshares1bot"
 	DB_CHANNEL = int(os.environ.get("DB_CHANNEL", "-1001814192750"))
 	BOT_OWNER = int(os.environ.get("BOT_OWNER", "880087645"))
 	DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb+srv://leecher:leecher@cluster0.606mkpi.mongodb.net/?retryWrites=true&w=majority")
