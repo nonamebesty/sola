@@ -74,14 +74,14 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
                 InlineKeyboardButton("Delete Batch", callback_data="closeMessage")
             ]])
         )
-        share_link = f"https://asumoviesharesbot.jasurun.workers.dev?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
+        share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
 
         await editable.edit(
             f"**Link:** {share_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
-                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/JAsuranBots"),
-                  InlineKeyboardButton("Support Group", url="https://telegram.me/AsuranMoviefinders")]]
+                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/As_botzz"),
+                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu")]]
             ),
             disable_web_page_preview=True
         )
@@ -125,13 +125,13 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         file_size = humanbytes(media.file_size)
         # get caption (if any)
         caption = message.caption if media.file_name else ""
-        share_link = f"https://asumoviesharesbot.jasurun.workers.dev?start=JAsuran_{str_to_b64(file_er_id)}"
+        share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(file_er_id)}"
         await editable.edit(
             f"**{caption} - {file_size} [⏰ {duration}]\n\nLink:** {share_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
-                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/JAsuranBots"),
-                  InlineKeyboardButton("Support Group", url="https://telegram.me/AsuranMoviefinders")]]
+                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/As_botzz"),
+                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu")]]
             ),
             disable_web_page_preview=True
         )
