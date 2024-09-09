@@ -7,7 +7,7 @@ import os
 class Config(object):
 	API_ID = 1923471
 	API_HASH = "fcdc178451cd234e63faefd38895c991"
-	BOT_TOKEN = "7232906449:AAFg-O0gq_sf2PWJWK3yGU8U6nxa-5qohyE"
+	BOT_TOKEN = "7232906449:AAG7eIYr8DPSMi9R7uezGRRa4pcaxZaHGpQ"
 	BOT_USERNAME = "NammaTVSerialbot"
 	DB_CHANNEL = int(os.environ.get("DB_CHANNEL", "-1001814192750"))
 	BOT_OWNER = int(os.environ.get("BOT_OWNER", "880087645"))
