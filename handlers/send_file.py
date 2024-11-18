@@ -28,6 +28,7 @@ async def reply_forward(message: Message, file_id: int):
         media1 = message.video or message.audio
         # get file name
         file_name = media.file_name if media.file_name else ""
+        file_size = humanbytes(media.file_size) if media.file_size else "N/A"
         # get file duration
         duration = TimeFormatter(media1.duration * 1000)
         # get caption (if any)
@@ -36,7 +37,7 @@ async def reply_forward(message: Message, file_id: int):
             f"**Kindly Subscribe and Support My Youtube Channel: https://www.youtube.com/@JAsuranvideos**\n\n"
             f"**Files will be Deleted After 15 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
-            f"**{caption}\n\n[⏰ {duration}]\n\nLink:** https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(file_id))}",
+            f"**{caption} ~ [⏰ {duration}]\n\n📤 Size: {file_size}\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nLink:** https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(file_id))}",
             disable_web_page_preview=True, quote=True)
     except FloodWait as e:
         await asyncio.sleep(e.value)
