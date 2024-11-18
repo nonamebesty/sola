@@ -9,7 +9,7 @@ class Config(object):
 	API_HASH = "fcdc178451cd234e63faefd38895c991"
 	BOT_TOKEN = "7232906449:AAG7eIYr8DPSMi9R7uezGRRa4pcaxZaHGpQ"
 	BOT_USERNAME = "NammaTVSerialbot"
-	DB_CHANNEL = int(os.environ.get("DB_CHANNEL", "-1002461730224"))
+	DB_CHANNEL = "-1002461730224"
 	BOT_OWNER = int(os.environ.get("BOT_OWNER", "880087645"))
 	DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb+srv://leecher:leecher@cluster0.606mkpi.mongodb.net/?retryWrites=true&w=majority")
 	UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "moviekoodu")
