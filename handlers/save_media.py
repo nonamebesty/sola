@@ -74,7 +74,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
                 InlineKeyboardButton("Delete Batch", callback_data="closeMessage")
             ]])
         )
-        share_link = f"📤 Size: 500MB to 3.5GB\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nhttps://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
+        share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
 
         await editable.edit(
             f"**Link:** {share_link}",
