@@ -77,7 +77,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
         #share_link = f"📤 Size: 500MB\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nhttps://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
         await editable.edit(
-            f"**Link:** {share_link}",
+            f"**ᴀʟʟ ɪɴ 1:** {share_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
                  [InlineKeyboardButton("Bots Channel", url="https://telegram.me/As_botzz"),
