@@ -1,8 +1,8 @@
 import aiohttp
 import asyncio
 import os
-#from config import *
-from config import SITE, API
+from configs import *
+from configs import SITE, API
 
 ####################  Tnlink  ####################
 
