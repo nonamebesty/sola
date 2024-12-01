@@ -20,7 +20,7 @@ def generate_random_alphanumeric():
     return random_chars
 
 def get_short(url):
-    rget = requests.get(f"https://{Config.SITE/api?api={Config.API}&url={url}&alias={generate_random_alphanumeric()}")
+    rget = requests.get(f"https://{Config.SITE}/api?api={Config.API}&url={url}&alias={generate_random_alphanumeric()}")
     rjson = rget.json()
     if rjson["status"] == "success" or rget.status_code == 200:
         return rjson["shortenedUrl"]
