@@ -10,7 +10,7 @@ from pyrogram.types import (
 )
 from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
-from configs import SITE, API
+from configs import *
 from short import get_short
 import requests
 
