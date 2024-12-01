@@ -10,23 +10,10 @@ from pyrogram.types import (
 )
 from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
-from configs import *
-from short import get_short
-import requests
+#from configs import *
+#from short import get_short
+#import requests
 
-def generate_random_alphanumeric():
-    """Generate a random 8-letter alphanumeric string."""
-    characters = string.ascii_letters + string.digits
-    random_chars = ''.join(random.choice(characters) for _ in range(8))
-    return random_chars
-
-def get_short(url):
-    rget = requests.get(f"https://{Config.SITE}/api?api={Config.API}&url={url}&alias={generate_random_alphanumeric()}")
-    rjson = rget.json()
-    if rjson["status"] == "success" or rget.status_code == 200:
-        return rjson["shortenedUrl"]
-    else:
-        return url
 
 def TimeFormatter(milliseconds: int) -> str:
     seconds, milliseconds = divmod(int(milliseconds), 1000)
@@ -92,10 +79,10 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             ]])
         )
         share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
-        short_link = await get_short(share_link)
+        #short_link = await get_short(share_link)
         #share_link = f"📤 Size: 500MB\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nhttps://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
         await editable.edit(
-            f"**ᴀʟʟ ɪɴ 1:** {short_link}",
+            f"**ᴀʟʟ ɪɴ 1:** {share_link}",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
                  [InlineKeyboardButton("Bots Channel", url="https://telegram.me/As_botzz"),
