@@ -12,6 +12,7 @@ from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
 from configs import SITE, API
 from short import get_short
+import requests
 
 def generate_random_alphanumeric():
     """Generate a random 8-letter alphanumeric string."""
