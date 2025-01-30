@@ -129,15 +129,15 @@ async def main(bot: Client, message: Message):
         if Config.OTHER_USERS_CAN_SAVE_FILE is False:
             return
 
-        #await message.reply_text(
-            #text="**Choose an option from below:**",
-            #reply_markup=InlineKeyboardMarkup([
-                #[InlineKeyboardButton("Save in Batch", callback_data="addToBatchTrue")],
-                #[InlineKeyboardButton("Get Sharable Link", callback_data="addToBatchFalse")]
-            #]),
-            #quote=True,
-            #disable_web_page_preview=True
-        #)
+        await message.reply_text(
+            text="**Choose an option from below:**",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Save in Batch", callback_data="addToBatchTrue")],
+                [InlineKeyboardButton("Get Sharable Link", callback_data="addToBatchFalse")]
+            ]),
+            quote=True,
+            disable_web_page_preview=True
+        )
     elif message.chat.type == enums.ChatType.CHANNEL:
         if (message.chat.id == int(Config.LOG_CHANNEL)) or (message.chat.id == int(Config.UPDATES_CHANNEL)) or message.forward_from_chat or message.forward_from:
             return
@@ -431,27 +431,17 @@ async def button(bot: Client, cmd: CallbackQuery):
         except Exception as e:
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
-
-    if message.content_type in ['video', 'document']:
-        await message.reply_video(message.video.file_id)
-        await message.reply_text("File Saved in Batch!\n\n"
+    elif "addToBatchTrue" in cb_data:
+        if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
+            MediaList[f"{str(cmd.from_user.id)}"] = []
+        file_id = cmd.message.reply_to_message.id
+        MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
+        await cmd.message.edit("File Saved in Batch!\n\n"
                                "Press below button to get batch link.",
                                reply_markup=InlineKeyboardMarkup([
                                    [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
                                    [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
                                ]))
-    
-    #elif "addToBatchTrue" in cb_data:
-     #   if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
-      #      MediaList[f"{str(cmd.from_user.id)}"] = []
-       # file_id = cmd.message.reply_to_message.id
-        #MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
-        #await cmd.message.edit("File Saved in Batch!\n\n"
-         #                      "Press below button to get batch link.",
-          #                     reply_markup=InlineKeyboardMarkup([
-           #                        [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
-            #                       [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
-             #                  ]))
 
     elif "addToBatchFalse" in cb_data:
         await save_media_in_channel(bot, editable=cmd.message, message=cmd.message.reply_to_message)
@@ -474,3 +464,4 @@ async def button(bot: Client, cmd: CallbackQuery):
 
 
 Bot.run()
+
