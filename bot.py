@@ -432,7 +432,7 @@ async def button(bot: Client, cmd: CallbackQuery):
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
 
-    elif message.content_type == "video":
+    if message.content_type in ['video', 'document']:
         await message.reply_video(message.video.file_id)
         await message.reply_text("File Saved in Batch!\n\n"
                                "Press below button to get batch link.",
