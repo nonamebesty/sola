@@ -432,6 +432,7 @@ async def button(bot: Client, cmd: CallbackQuery):
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
     elif "addToBatchTrue" in cb_data:
+        return
         if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
             MediaList[f"{str(cmd.from_user.id)}"] = []
         file_id = cmd.message.reply_to_message.id
