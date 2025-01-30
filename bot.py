@@ -431,17 +431,28 @@ async def button(bot: Client, cmd: CallbackQuery):
         except Exception as e:
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
-    elif "addToBatchTrue" in cb_data:
-        if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
-            MediaList[f"{str(cmd.from_user.id)}"] = []
-        file_id = cmd.message.reply_to_message.id
-        MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
-        await cmd.message.edit("File Saved in Batch!\n\n"
+
+    elif "video" in cb_data:
+        message.content_type:
+        await message.reply_video(message.video.file_id)
+        await message.reply_text("File Saved in Batch!\n\n"
                                "Press below button to get batch link.",
                                reply_markup=InlineKeyboardMarkup([
                                    [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
                                    [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
                                ]))
+    
+    #elif "addToBatchTrue" in cb_data:
+     #   if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
+      #      MediaList[f"{str(cmd.from_user.id)}"] = []
+       # file_id = cmd.message.reply_to_message.id
+        #MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
+        #await cmd.message.edit("File Saved in Batch!\n\n"
+         #                      "Press below button to get batch link.",
+          #                     reply_markup=InlineKeyboardMarkup([
+           #                        [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
+            #                       [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
+             #                  ]))
 
     elif "addToBatchFalse" in cb_data:
         await save_media_in_channel(bot, editable=cmd.message, message=cmd.message.reply_to_message)
