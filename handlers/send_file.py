@@ -48,7 +48,6 @@ async def reply_forward(message: Message, file_id: int):
         # get caption (if any)
         caption = message.caption if media.file_name else ""
         await message.reply_text(
-            f"**Kindly Subscribe and Support My Youtube Channel: https://www.youtube.com/@JAsuranvideos**\n\n"
             f"**Files will be Deleted After 15 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
             f"**{caption} ~ [⏰ {duration}]\n\n📤 Size: {file_size}\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nLink:** https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(file_id))}",
@@ -73,7 +72,7 @@ async def media_forward(bot: Client, user_id: int, file_id: int):
     
 async def send_media_and_reply(bot: Client, user_id: int, file_id: int):
     sent_message = await media_forward(bot, user_id, file_id)
-    #await reply_forward(message=sent_message, file_id=file_id)
+    await reply_forward(message=sent_message, file_id=file_id)
     asyncio.create_task(delete_after_delay(sent_message, 900))
 
 async def delete_after_delay(message, delay):
