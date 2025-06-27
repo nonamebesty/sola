@@ -109,7 +109,7 @@ async def start(bot: Client, cmd: Message):
             await cmd.reply_text(f"Something went wrong!\n\n**Error:** `{err}`")
 MediaList = {}
 user_batch_data = {}  # To hold messages for automatic batching
-BATCH_PROCESS_TIMEOUT = 3  # Seconds to wait for more files
+BATCH_PROCESS_TIMEOUT = 5  # Seconds to wait for more files
 
 async def process_batch_after_delay(bot: Client, user_id: int):
     """
