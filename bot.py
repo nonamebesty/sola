@@ -107,7 +107,47 @@ async def start(bot: Client, cmd: Message):
                 await send_media_and_reply(bot, user_id=cmd.from_user.id, file_id=int(message_ids[i]))
         except Exception as err:
             await cmd.reply_text(f"Something went wrong!\n\n**Error:** `{err}`")
+MediaList = {}
+user_batch_data = {}  # To hold messages for automatic batching
+BATCH_PROCESS_TIMEOUT = 3  # Seconds to wait for more files
 
+async def process_batch_after_delay(bot: Client, user_id: int):
+    """
+    Waits for a timeout, then processes the collected messages for a user.
+    If multiple messages are collected, it generates a batch link.
+    If only one, it directly generates a sharable link for that single file.
+    """
+    # Retrieve the collected messages and the message to edit
+    batch_info = user_batch_data.get(user_id)
+    if not batch_info:
+        return
+
+    messages = batch_info["messages"]
+    editable = batch_info["editable"]
+
+    try:
+        if not messages:
+            # This case is unlikely but good to have
+            await editable.edit("No files were received.")
+            return
+
+        # If only one message was received, process it as a single file
+        if len(messages) == 1:
+            await editable.edit(f"**Detected 1 file. Please wait, generating sharable link...**")
+            await save_media_in_channel(bot, editable=editable, message=messages[0])
+        # If multiple messages were received, process them as a batch
+        else:
+            await editable.edit(f"**Detected {len(messages)} files. Please wait, generating batch link...**")
+            message_ids = [msg.id for msg in messages]
+            await save_batch_media_in_channel(bot=bot, editable=editable, message_ids=message_ids)
+
+    except Exception as e:
+        await editable.edit(f"An error occurred while processing your files!\n\n**Error:** `{e}`")
+        traceback.print_exc()
+    finally:
+        # Important: Clean up the user's data after processing
+        if user_id in user_batch_data:
+            del user_batch_data[user_id]
 
 @Bot.on_message((filters.document | filters.video | filters.audio | filters.photo) & ~filters.chat(Config.DB_CHANNEL))
 async def main(bot: Client, message: Message):
@@ -129,16 +169,49 @@ async def main(bot: Client, message: Message):
         if Config.OTHER_USERS_CAN_SAVE_FILE is False:
             return
 
-        await message.reply_text(
-            text="**Choose an option from below:**",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Save in Batch", callback_data="addToBatchTrue")],
-                [InlineKeyboardButton("Get Sharable Link", callback_data="addToBatchFalse")]
-            ]),
-            quote=True,
-            disable_web_page_preview=True
+        # --- AUTOMATIC BATCH DETECTION AND DIRECT LINK LOGIC ---
+        user_id = message.from_user.id
+        
+        # If a timer is already running for this user, cancel it to reset the countdown
+        if user_id in user_batch_data and user_batch_data[user_id]["timer"]:
+            user_batch_data[user_id]["timer"].cancel()
+
+        # If this is the first file of a new batch, prepare the "shopping cart" for the user
+        if user_id not in user_batch_data:
+            # Send an initial message that we can edit later to show progress
+            editable = await message.reply_text("`Collecting files... Please wait...`", quote=True)
+            user_batch_data[user_id] = {
+                "messages": [],
+                "editable": editable,
+                "timer": None
+            }
+        
+        # Add the new file to the user's list
+        user_batch_data[user_id]["messages"].append(message)
+        
+        # Start a new timer. If another file arrives, this timer will be cancelled and restarted.
+        new_timer = asyncio.create_task(
+            asyncio.sleep(BATCH_PROCESS_TIMEOUT)
         )
+        user_batch_data[user_id]["timer"] = new_timer
+        
+        try:
+            # Wait for the timer to complete
+            await new_timer
+            # If the timer completes without being cancelled, it means the user has stopped sending files.
+            # Now, process everything we have collected.
+            await process_batch_after_delay(bot, user_id)
+        except asyncio.CancelledError:
+            # This error means another file arrived. We have already reset the timer.
+            # Let's update the message to let the user know we're still collecting.
+            num_files = len(user_batch_data[user_id]["messages"])
+            await user_batch_data[user_id]["editable"].edit(
+                f"**Collected {num_files} files... Waiting for more...**"
+            )
+        # --- END OF AUTOMATIC LOGIC ---
+
     elif message.chat.type == enums.ChatType.CHANNEL:
+        # This part for handling public channels remains the same.
         if (message.chat.id == int(Config.LOG_CHANNEL)) or (message.chat.id == int(Config.UPDATES_CHANNEL)) or message.forward_from_chat or message.forward_from:
             return
         elif int(message.chat.id) in Config.BANNED_CHAT_IDS:
@@ -174,7 +247,9 @@ async def main(bot: Client, message: Message):
                 chat_id=int(Config.LOG_CHANNEL),
                 text=f"#ERROR_TRACEBACK:\nGot Error from `{str(message.chat.id)}` !!\n\n**Traceback:** `{err}`",
                 disable_web_page_preview=True
-            )
+        )
+
+
 
 
 @Bot.on_message(filters.private & filters.command("broadcast") & filters.user(Config.BOT_OWNER) & filters.reply)
