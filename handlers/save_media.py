@@ -120,14 +120,14 @@ async def process_batch_after_delay(bot: Client, user_id: int):
     # ...
 
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
-    try:
-        print(f"--- Saving batch with {len(message_ids)} message IDs ---") # Add this
-        # ...
-        print(f"Forwarded messages and got new IDs: {message_ids_str}") # Add this
-        # ...
-        print(f"Generated share link: {share_link}") # Add this
-except Exception as err:
-        # ...
+    # 'try' is indented once from the function definition
+    try: 
+        # Code inside the try block is indented again
+        print("Trying to save...")
+    # 'except' is at the SAME level as 'try'
+    except Exception as err: 
+        # Code inside the except block is indented again
+        print(f"An error occurred: {err}")
 
 async def save_media_in_channel(bot: Client, editable: Message, message: Message):
     try:
