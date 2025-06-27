@@ -431,37 +431,56 @@ async def button(bot: Client, cmd: CallbackQuery):
         except Exception as e:
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
-    elif "addToBatchTrue" in cb_data:
-        if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
-            MediaList[f"{str(cmd.from_user.id)}"] = []
-        file_id = cmd.message.reply_to_message.id
-        MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
-        await cmd.message.edit("File Saved in Batch!\n\n"
-                               "Press below button to get batch link.",
-                               reply_markup=InlineKeyboardMarkup([
-                                   [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
-                                   [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
-                               ]))
+    if "addToBatchTrue" in cb_data:
+        # Ensure MediaList exists for the user
+        if cmd.from_user.id not in MediaList:
+            MediaList[cmd.from_user.id] = []
 
+        # Get the ID of the message that the button was replied to
+        file_id = cmd.message.reply_to_message.id
+        MediaList[cmd.from_user.id].append(file_id)
+
+        # Confirm addition and offer next steps
+        await cmd.message.edit(
+            "File added to your batch!\n\n"
+            "You can keep adding more files, or press the button below to get the batch link.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
+                [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
+            ])
+        )
+
+    # The 'addToBatchFalse' callback might become redundant if 'main' now auto-generates single links.
+    # If you still want a button that explicitly triggers a single link save, keep this:
     elif "addToBatchFalse" in cb_data:
         await save_media_in_channel(bot, editable=cmd.message, message=cmd.message.reply_to_message)
+        # You might want to update the message after saving to say "Link generated!"
+        # The save_media_in_channel function should ideally handle editing 'editable' with the link.
 
+    # This callback is for generating the final batch link from the collected MediaList.
     elif "getBatchLink" in cb_data:
-        message_ids = MediaList.get(f"{str(cmd.from_user.id)}", None)
-        if message_ids is None:
-            await cmd.answer("Batch List Empty!", show_alert=True)
+        message_ids = MediaList.get(cmd.from_user.id, None)
+        if message_ids is None or not message_ids: # Check if list is empty or None
+            await cmd.answer("Your batch list is empty! Please add files first.", show_alert=True)
             return
-        await cmd.message.edit("Please wait, generating batch link ...")
-        await save_batch_media_in_channel(bot=bot, editable=cmd.message, message_ids=message_ids)
-        MediaList[f"{str(cmd.from_user.id)}"] = []
 
+        await cmd.message.edit("Please wait, generating batch link ...")
+        # This function should update the 'editable' message with the final link
+        await save_batch_media_in_channel(bot=bot, editable=cmd.message, message_ids=message_ids)
+        MediaList[cmd.from_user.id] = [] # Clear the batch after processing
+
+    # This remains the same, for closing the inline keyboard message.
     elif "closeMessage" in cb_data:
         await cmd.message.delete(True)
 
-    try:
-        await cmd.answer()
-    except QueryIdInvalid: pass
+    # --- END OF MODIFIED BATCH HANDLING CALLBACKS ---
 
+    try:
+        await cmd.answer() # Always answer the callback query to remove the loading animation
+    except QueryIdInvalid:
+        # This can happen if the message was edited/deleted by another async task
+        # or if the query ID has expired. It's safe to just pass here.
+        pass
 
 Bot.run()
 
