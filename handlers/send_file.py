@@ -47,7 +47,7 @@ async def reply_forward(message: Message, file_id: int):
         duration = TimeFormatter(media1.duration * 1000)
         # get caption (if any)
 
-        caption = message.caption if media.file_name else ""
+        #caption = message.caption if media.file_name else ""
         
         caption = (message.text.split(" ", 1)[1] if len(message.text.split(" ", 1)) > 1 else None)
         
