@@ -46,7 +46,11 @@ async def reply_forward(message: Message, file_id: int):
         # get file duration
         duration = TimeFormatter(media1.duration * 1000)
         # get caption (if any)
+
         caption = message.caption if media.file_name else ""
+        
+        caption = (message.text.split(" ", 1)[1] if len(message.text.split(" ", 1)) > 1 else None)
+        
         await message.reply_text(
             f"**Files will be Deleted After 15 min**\n\n"
             f"**__To Retrive the Stored File, just again open the link!__**\n\n"
