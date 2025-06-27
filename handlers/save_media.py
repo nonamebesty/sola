@@ -113,13 +113,6 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             await editable.edit("No files were successfully saved to the database channel for the batch. This could be a permission issue.")
             print("--- [ERROR] No message IDs collected in DB_CHANNEL ---")
             return
-import asyncio
-import traceback
-from configs import Config
-from pyrogram.types import Message
-from pyrogram import Client
-from handlers.helpers import str_to_b64
-
 # Assuming forward_to_channel is defined as in your original script
 
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
