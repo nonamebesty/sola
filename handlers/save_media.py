@@ -126,7 +126,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         print(f"Forwarded messages and got new IDs: {message_ids_str}") # Add this
         # ...
         print(f"Generated share link: {share_link}") # Add this
-    except Exception as err:
+except Exception as err:
         # ...
 
 async def save_media_in_channel(bot: Client, editable: Message, message: Message):
