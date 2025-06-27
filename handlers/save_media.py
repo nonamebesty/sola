@@ -129,6 +129,9 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         # get file size
         file_size = humanbytes(media.file_size)
         # get caption (if any)
+        caption = (
+        message.text.split(" ", 1)[1] if len(message.text.split(" ", 1)) > 1 else None
+        )
         caption = message.caption if media.file_name else ""
         share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(file_er_id)}"
         await editable.edit(
