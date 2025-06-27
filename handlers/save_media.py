@@ -61,54 +61,73 @@ async def forward_to_channel(bot: Client, message: Message, editable: Message):
             )
         return await forward_to_channel(bot, message, editable)
 
+# In handlers/save_media.py
+
+from configs import Config
+from pyrogram.types import Message
+from pyrogram import Client, enums
+from handlers.helpers import str_to_b64
+import asyncio
+
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
     try:
         message_ids_str = ""
         for message in (await bot.get_messages(chat_id=editable.chat.id, message_ids=message_ids)):
-            sent_message = await forward_to_channel(bot, message, editable)
-            if sent_message is None:
-                continue
-            message_ids_str += f"{str(sent_message.id)} "
-            await asyncio.sleep(2)
-        SaveMessage = await bot.send_message(
-            chat_id=Config.DB_CHANNEL,
-            text=message_ids_str,
-            disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Delete Batch", callback_data="closeMessage")
-            ]])
-        )
-        share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
-        #short_link = await get_short(share_link)
-        #share_link = f"📤 Size: 500MB\n\n🎫 Quality: All\n\n🎧 Audio : Tamil\n\nhttps://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
-        await editable.edit(
-            f"{share_link}",
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Open Link", url=share_link)],
-                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/As_botzz"),
-                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu")]]
-            ),
-            disable_web_page_preview=True
-        )
-        await bot.send_message(
-            chat_id=int(Config.LOG_CHANNEL),
-            text=f"#BATCH_SAVE:\n\n[{editable.reply_to_message.from_user.first_name}](tg://user?id={editable.reply_to_message.from_user.id}) Got Batch Link!",
-            disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Open Link", url=share_link)]])
-        )
-    except Exception as err:
-        await editable.edit(f"Something Went Wrong!\n\n**Error:** `{err}`")
-        await bot.send_message(
-            chat_id=int(Config.LOG_CHANNEL),
-            text=f"#ERROR_TRACEBACK:\nGot Error from `{str(editable.chat.id)}` !!\n\n**Traceback:** `{err}`",
-            disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton("Ban User", callback_data=f"ban_user_{str(editable.chat.id)}")]
-                ]
-            )
-        )
+            # Forward each message to the DB_CHANNEL
+            sent_message = await message.forward(chat_id=Config.DB_CHANNEL)
+            if sent_message:
+                # Append the new message ID to our string
+                message_ids_str += f"{str(sent_message.id)} "
+                # Small delay to avoid flood waits
+                await asyncio.sleep(0.5)
+            else:
+                # If forwarding fails for any message, abort
+                await editable.edit("Failed to save one or more files. Please try again.")
+                return
 
+        # We need to save the list of new message IDs in a new message
+        # This new message will act as our "batch"
+        if message_ids_str != "":
+            # Create a new message containing the space-separated IDs
+            saved_message = await bot.send_message(
+                chat_id=Config.DB_CHANNEL,
+                text=message_ids_str,
+                disable_web_page_preview=True
+            )
+
+            # Generate the shareable link for the "batch" message
+            share_link = f"https://t.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(saved_message.id))}"
+            
+            # Edit the user's message with the final link
+            await editable.edit(
+                f"**Your batch of {len(message_ids)} files has been saved!**\n\n**Shareable Link:** {share_link}",
+                disable_web_page_preview=True
+            )
+        else:
+            await editable.edit("Could not save any files. Please try again.")
+
+    except Exception as err:
+        await editable.edit(f"An error occurred: {err}")
+        print(f"Error in save_batch_media_in_channel: {err}") # For your logs
+
+async def process_batch_after_delay(bot: Client, user_id: int):
+    # ...
+    print(f"--- Processing for user {user_id} ---") # Add this
+    batch_info = user_batch_data.get(user_id)
+    # ...
+    messages = batch_info["messages"]
+    print(f"Collected {len(messages)} messages.") # Add this
+    # ...
+
+async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
+    try:
+        print(f"--- Saving batch with {len(message_ids)} message IDs ---") # Add this
+        # ...
+        print(f"Forwarded messages and got new IDs: {message_ids_str}") # Add this
+        # ...
+        print(f"Generated share link: {share_link}") # Add this
+    except Exception as err:
+        # ...
 
 async def save_media_in_channel(bot: Client, editable: Message, message: Message):
     try:
