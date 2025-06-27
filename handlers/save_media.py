@@ -61,73 +61,91 @@ async def forward_to_channel(bot: Client, message: Message, editable: Message):
             )
         return await forward_to_channel(bot, message, editable)
 
-# In handlers/save_media.py
-
+import asyncio
+import traceback
 from configs import Config
 from pyrogram.types import Message
-from pyrogram import Client, enums
-from handlers.helpers import str_to_b64
-import asyncio
+from pyrogram import Client # Ensure Client is imported
+from handlers.helpers import str_to_b64 # Ensure str_to_b64 is imported
 
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
+    print(f"--- [DEBUG] Entering save_batch_media_in_channel for user {editable.chat.id} ---")
+    print(f"--- [DEBUG] Messages IDs to process: {message_ids} ---")
+
     try:
-        message_ids_str = ""
-        for message in (await bot.get_messages(chat_id=editable.chat.id, message_ids=message_ids)):
-            # Forward each message to the DB_CHANNEL
-            sent_message = await message.forward(chat_id=Config.DB_CHANNEL)
-            if sent_message:
-                # Append the new message ID to our string
-                message_ids_str += f"{str(sent_message.id)} "
-                # Small delay to avoid flood waits
-                await asyncio.sleep(0.5)
-            else:
-                # If forwarding fails for any message, abort
-                await editable.edit("Failed to save one or more files. Please try again.")
-                return
+        message_ids_in_db = [] # This will store the IDs of messages *after* they are forwarded to DB_CHANNEL
 
-        # We need to save the list of new message IDs in a new message
-        # This new message will act as our "batch"
-        if message_ids_str != "":
-            # Create a new message containing the space-separated IDs
-            saved_message = await bot.send_message(
-                chat_id=Config.DB_CHANNEL,
-                text=message_ids_str,
-                disable_web_page_preview=True
-            )
+        # Ensure DB_CHANNEL is correctly configured
+        if not Config.DB_CHANNEL:
+            await editable.edit("Bot owner has not configured the DB_CHANNEL. Please contact support.")
+            print("--- [ERROR] Config.DB_CHANNEL is not set! ---")
+            return
 
-            # Generate the shareable link for the "batch" message
-            share_link = f"https://t.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(saved_message.id))}"
-            
-            # Edit the user's message with the final link
-            await editable.edit(
-                f"**Your batch of {len(message_ids)} files has been saved!**\n\n**Shareable Link:** {share_link}",
-                disable_web_page_preview=True
-            )
-        else:
-            await editable.edit("Could not save any files. Please try again.")
+        # Fetch original messages and forward them
+        # Using get_messages on user chat to ensure we have the actual message objects
+        original_messages = await bot.get_messages(chat_id=editable.chat.id, message_ids=message_ids)
+        
+        if not original_messages:
+            await editable.edit("No original messages found to save for batch. It might be an internal error.")
+            print(f"--- [ERROR] No original messages found for IDs: {message_ids} ---")
+            return
+
+        for msg in original_messages:
+            try:
+                # Try to forward each message
+                sent_message = await msg.forward(chat_id=Config.DB_CHANNEL)
+                if sent_message:
+                    message_ids_in_db.append(str(sent_message.id))
+                    print(f"--- [DEBUG] Forwarded message {msg.id} to DB_CHANNEL as {sent_message.id} ---")
+                    await asyncio.sleep(0.5) # Small delay to avoid hitting flood limits
+                else:
+                    # This branch is usually not hit, as forward would raise an exception on failure
+                    print(f"--- [WARNING] Forwarding failed for message {msg.id} (returned None) ---")
+                    await editable.edit(f"Failed to forward message {msg.id} to the database channel. Please check bot permissions and DB_CHANNEL configuration.")
+                    return # Stop processing the batch if one message fails
+            except Exception as e:
+                print(f"--- [ERROR] Failed to forward message {msg.id}: {e} ---")
+                await editable.edit(f"Failed to forward message {msg.id} to the database channel due to an error: `{e}`. Please check bot permissions and DB_CHANNEL configuration.")
+                return # Stop processing the batch if any message fails
+
+        # If no messages were successfully forwarded
+        if not message_ids_in_db:
+            await editable.edit("No files were successfully saved to the database channel for the batch. This could be a permission issue.")
+            print("--- [ERROR] No message IDs collected in DB_CHANNEL ---")
+            return
+
+        # Create a single message in DB_CHANNEL with all the new message IDs
+        message_ids_str = " ".join(message_ids_in_db)
+        print(f"--- [DEBUG] Batch manifest string: '{message_ids_str}' ---")
+
+        saved_batch_manifest_message = await bot.send_message(
+            chat_id=Config.DB_CHANNEL,
+            text=message_ids_str,
+            disable_web_page_preview=True
+        )
+        print(f"--- [DEBUG] Batch manifest message ID in DB_CHANNEL: {saved_batch_manifest_message.id} ---")
+
+        # Generate the shareable link for the manifest message
+        share_link = f"https://t.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(str(saved_batch_manifest_message.id))}"
+        print(f"--- [DEBUG] Generated share link: {share_link} ---")
+
+        # Edit the original message to the user with the final link
+        await editable.edit(
+            f"**Your batch of {len(message_ids_in_db)} files has been saved!**\n\n**Shareable Link:** {share_link}",
+            disable_web_page_preview=True
+        )
+        print(f"--- [DEBUG] Successfully sent batch link to user {editable.chat.id} ---")
 
     except Exception as err:
-        await editable.edit(f"An error occurred: {err}")
-        print(f"Error in save_batch_media_in_channel: {err}") # For your logs
+        # Catch any broad errors that might occur during the process
+        error_message = f"An unexpected error occurred during batch saving: `{err}`"
+        print(f"--- [CRITICAL ERROR] {error_message} ---")
+        traceback.print_exc() # Print full traceback to console/logs for detailed debugging
+        try:
+            await editable.edit(error_message + "\n\nPlease check bot permissions and DB_CHANNEL configuration.")
+        except Exception as e:
+            print(f"--- [ERROR] Could not edit user message to show error: {e} ---")
 
-async def process_batch_after_delay(bot: Client, user_id: int):
-    # ...
-    print(f"--- Processing for user {user_id} ---") # Add this
-    batch_info = user_batch_data.get(user_id)
-    # ...
-    messages = batch_info["messages"]
-    print(f"Collected {len(messages)} messages.") # Add this
-    # ...
-
-async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
-    # 'try' is indented once from the function definition
-    try: 
-        # Code inside the try block is indented again
-        print("Trying to save...")
-    # 'except' is at the SAME level as 'try'
-    except Exception as err: 
-        # Code inside the except block is indented again
-        print(f"An error occurred: {err}")
 
 async def save_media_in_channel(bot: Client, editable: Message, message: Message):
     try:
