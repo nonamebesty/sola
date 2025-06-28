@@ -11,14 +11,6 @@ from pyrogram.types import (
 # Import the specific error for graceful handling
 from pyrogram.errors import FloodWait, MessageNotModified 
 
-# --- Configuration Class (unchanged, just showing context) ---
-class Config:
-    BOT_USERNAME = ""
-    DB_CHANNEL = 
-    LOG_CHANNEL = 
-    API_ID = 
-    API_HASH = ""
-    BOT_TOKEN = ""
 
 # --- Helper Functions (unchanged) ---
 def TimeFormatter(milliseconds: int) -> str:
