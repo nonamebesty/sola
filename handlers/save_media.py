@@ -1,13 +1,14 @@
 import asyncio
 import traceback
 import os
+import base64 # Import base64 directly here as it's used in helper functions
 
 try:
     from configs import Config
 except ImportError:
     print("Error: 'configs.py' not found or 'Config' class not defined inside it.")
     print("Please make sure you have a 'configs.py' file with a 'Config' class.")
-    exit(1)
+    exit(1) # Exit if configuration is missing
 
 from pyrogram import Client, filters
 from pyrogram.types import (
@@ -18,7 +19,7 @@ from pyrogram.types import (
 )
 from pyrogram.errors import FloodWait, MessageNotModified
 
-# --- Helper Functions (Keep as is) ---
+# --- Helper Functions ---
 def TimeFormatter(milliseconds: int) -> str:
     if not milliseconds:
         return "N/A"
@@ -44,20 +45,31 @@ def humanbytes(size: int) -> str:
     return str(round(size, 2)) + " " + Dic_powerN[n]
 
 def str_to_b64(text: str) -> str:
-    import base64
     return base64.urlsafe_b64encode(str(text).encode("ascii")).decode("ascii").strip("=")
 
 def b64_to_str(text: str) -> str:
-    import base64
-    return base64.urlsafe_b64decode(text.encode("ascii") + b"==").decode("ascii")
+    try:
+        # Pad with '==' to ensure correct base64 decoding if padding was removed.
+        # This is generally what urlsafe_b64decode expects if no padding is present.
+        padding_needed = len(text) % 4
+        if padding_needed != 0:
+            text += '=' * (4 - padding_needed)
+        return base64.urlsafe_b64decode(text.encode("ascii")).decode("ascii")
+    except (base64.binascii.Error, UnicodeDecodeError) as e:
+        print(f"Base64 decoding error for text '{text}': {e}")
+        # Return original text or raise a specific error if you want to handle it differently
+        raise ValueError(f"Invalid base64 string: {text}") from e
+    except Exception as e:
+        print(f"Unexpected error in b64_to_str for text '{text}': {e}")
+        raise
 
-# --- Global Variables for Batch Handling (Keep as is) ---
+# --- Global Variables for Batch Handling ---
 BATCH_FILES = {}
 BATCH_EDITABLE_MESSAGES = {}
 BATCH_TIMEOUT_TASKS = {}
 BATCH_TIMEOUT = 10 # Seconds to wait for more files in a batch
 
-# --- Core Functions (Keep as is) ---
+# --- Core Functions ---
 async def forward_to_channel(bot: Client, message: Message, editable: Message):
     """
     Forwards a message to the DB_CHANNEL.
@@ -244,14 +256,13 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
                      f"**Traceback:** `{traceback.format_exc()}`",
                 disable_web_page_preview=True,
                 reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("Ban User", callback_data=f"ban_user_{str(editable.chat.id)}")]]
-                )
+                    [[InlineKeyboardButton("Ban User", callback_data=f"ban_user_{str(editable.chat.id)}")]])
             )
 
 # --- Batch Processing Handlers ---
 async def handle_batch_timeout(bot: Client, user_id: int):
     """
-    Called when a batch timeout occurs. Shows the 'Get Batch Link' button.
+    Called when a batch timeout occurs. Shows the 'Get Batch Link' button or saves single file.
     """
     try:
         await asyncio.sleep(BATCH_TIMEOUT)
@@ -322,6 +333,7 @@ async def process_media_messages(bot: Client, message: Message):
     Handles incoming media messages from private chats.
     Initiates or adds to a batch processing flow.
     """
+    # Only process if it's actually a media message with file_id
     if not (message.document or message.video or message.photo or message.audio):
         print(f"Skipping non-media message from {message.from_user.id}: {message.id}")
         return
@@ -346,7 +358,6 @@ async def process_media_messages(bot: Client, message: Message):
         try:
             editable_msg = BATCH_EDITABLE_MESSAGES.get(user_id)
             if editable_msg:
-                # Update text to show current count and options
                 new_text = (
                     f"Adding file to batch... Total files: {current_file_count}. "
                     "Send more files or click 'Done' to finalize the batch."
@@ -357,13 +368,12 @@ async def process_media_messages(bot: Client, message: Message):
                         [InlineKeyboardButton("✅ Done with Batch", callback_data=f"finalize_batch_{user_id}")]
                     ]
                 )
+                # Only show 'Save This File Now' if it's the only file in the current batch state
+                # or if the first file of a new batch was just added (to address the initial problem)
                 if current_file_count == 1:
-                    # If it's the first file in a new batch (after a previous one was cleared)
-                    # or if the user sends one file and it starts a new batch, give option to save single
                     reply_markup.inline_keyboard.append(
                         [InlineKeyboardButton("💾 Save This File Now", callback_data=f"save_single_{message.id}")]
                     )
-
                 await editable_msg.edit(new_text, reply_markup=reply_markup)
             else:
                 print(f"Warning: No editable message found for user {user_id} while adding to batch. Attempting to create one.")
@@ -373,13 +383,14 @@ async def process_media_messages(bot: Client, message: Message):
 
         except MessageNotModified:
             print(f"MessageNotModified: Edit attempt for {user_id} had same content. Current count: {current_file_count}.")
+            # This is expected if the message text isn't changing.
         except Exception as e:
             print(f"Error editing message for user {user_id}: {e}")
             traceback.print_exc()
 
     else:
-        # Start a new batch
-        print(f"Starting new batch for {user_id}. Message ID: {message.id}")
+        # Start a new batch or process as a single file
+        print(f"Starting new batch/single file process for {user_id}. Message ID: {message.id}")
         
         initial_text = "Received your first file! Send more files to create a batch, or choose an option below."
         initial_markup = InlineKeyboardMarkup(
@@ -394,17 +405,17 @@ async def process_media_messages(bot: Client, message: Message):
         BATCH_EDITABLE_MESSAGES[user_id] = editable
         BATCH_FILES[user_id] = [message.id]
         
-        # Start the timeout task
         BATCH_TIMEOUT_TASKS[user_id] = asyncio.create_task(handle_batch_timeout(bot, user_id))
         print(f"Started initial timeout task for {user_id}")
+
 
 @Client.on_callback_query(filters.regex(r"^get_batch_"))
 async def get_batch_callback(bot: Client, query: CallbackQuery):
     """
-    Handles the callback query when the user clicks 'Get Batch Link' (from timeout).
+    Handles the callback query when the user clicks 'Get Batch Link'.
     """
     user_id = query.from_user.id
-    print(f"Get Batch Callback received from user: {user_id} (from timeout button)")
+    print(f"Get Batch Callback received from user: {user_id}")
 
     await query.answer("Generating batch link...", show_alert=False)
 
@@ -415,6 +426,7 @@ async def get_batch_callback(bot: Client, query: CallbackQuery):
         if not editable:
             print(f"Error: No editable message found for {user_id} in callback. Cleaning up.")
             await query.message.edit("An error occurred: Could not find the editable message for your batch.")
+            # Clear data if editable message is missing
             if user_id in BATCH_FILES: del BATCH_FILES[user_id]
             if user_id in BATCH_EDITABLE_MESSAGES: del BATCH_EDITABLE_MESSAGES[user_id]
             if user_id in BATCH_TIMEOUT_TASKS:
@@ -423,6 +435,7 @@ async def get_batch_callback(bot: Client, query: CallbackQuery):
             return
 
         try:
+            # Update the message to indicate processing has started
             await editable.edit("Preparing to save your batch files. This may take a moment...")
         except MessageNotModified:
             print(f"MessageNotModified: Preparing text already set for {user_id}.")
@@ -434,6 +447,7 @@ async def get_batch_callback(bot: Client, query: CallbackQuery):
     else:
         print(f"No batch files found for user {user_id} during callback. Stale button or cleanup already done.")
         await query.message.edit("No batch files found for you. Please send files to start a new batch.")
+        # Ensure cleanup in case of stale button
         if user_id in BATCH_FILES: del BATCH_FILES[user_id]
         if user_id in BATCH_EDITABLE_MESSAGES: del BATCH_EDITABLE_MESSAGES[user_id]
         if user_id in BATCH_TIMEOUT_TASKS:
@@ -552,8 +566,7 @@ async def save_single_callback(bot: Client, query: CallbackQuery):
         if user_id in BATCH_FILES: del BATCH_FILES[user_id]
         if user_id in BATCH_EDITABLE_MESSAGES: del BATCH_EDITABLE_MESSAGES[user_id]
 
-# --- Other Handlers (Keep as is) ---
-
+# --- Other Handlers ---
 @Client.on_message(filters.command("start"))
 async def start_command(bot: Client, message: Message):
     """
@@ -563,66 +576,91 @@ async def start_command(bot: Client, message: Message):
     """
     if len(message.command) > 1 and message.command[1].startswith("JAsuran_"):
         encoded_id = message.command[1].split("_", 1)[1]
-        
+        print(f"DEBUG: Received encoded_id: '{encoded_id}' from user {message.from_user.id}")
+
+        manifest_message_id = None
         try:
-            manifest_message_id = int(b64_to_str(encoded_id))
+            decoded_str = b64_to_str(encoded_id)
+            print(f"DEBUG: Decoded string: '{decoded_str}' for user {message.from_user.id}")
+            manifest_message_id = int(decoded_str)
+            print(f"DEBUG: Converted manifest_message_id: {manifest_message_id} for user {message.from_user.id}")
+            
+        except ValueError as ve: # Catch specific ValueError from b64_to_str or int()
+            error_msg = f"Invalid link format. The file ID in the link seems corrupted or incorrect. Error: `{ve}`"
+            print(f"Error for user {message.from_user.id}: {error_msg}. Decoded string was: '{decoded_str}'")
+            await message.reply_text(error_msg + "\n\nPlease ensure you are using the correct share link.")
+            return
+        except Exception as e: # Catch any other unexpected errors during decoding/conversion
+            error_msg = f"An unexpected error occurred while processing the link: `{e}`."
+            print(f"Error for user {message.from_user.id}: {error_msg}. Traceback:\n{traceback.format_exc()}")
+            await message.reply_text(error_msg + "\n\nPlease try again or contact support.")
+            return
+
+        # Now proceed with fetching the manifest message using the valid integer ID
+        manifest_message = None
+        try:
             manifest_message = await bot.get_messages(
                 chat_id=Config.DB_CHANNEL,
                 message_ids=manifest_message_id
             )
         except Exception as e:
-            print(f"Error decoding or fetching manifest message: {e}")
-            await message.reply_text("Invalid or expired share link. The file(s) might have been deleted.")
+            print(f"Error fetching manifest message {manifest_message_id} for user {message.from_user.id}: {e}")
+            traceback.print_exc()
+            await message.reply_text("The files associated with this link could not be found. They might have been deleted from the database.")
             return
 
-        # Check if it's a batch link (space-separated IDs) or a single file link
-        if manifest_message and manifest_message.text and " " in manifest_message.text:
-            message_ids_str = manifest_message.text
-            message_ids = []
-            try:
-                message_ids = [int(mid) for mid in message_ids_str.split()]
-            except ValueError:
-                await message.reply_text("Invalid batch data in the manifest. Unable to retrieve files.")
-                return
-
-            if not message_ids:
-                await message.reply_text("Invalid batch link or no files found in this batch.")
-                return
-
-            await message.reply_text(f"Fetching {len(message_ids)} files from the batch. This may take a moment...")
-            
-            for msg_id in message_ids:
+        if manifest_message and manifest_message.text:
+            # Check if it's a batch link (space-separated IDs) or a single file link
+            if " " in manifest_message.text: # Assuming space means multiple IDs
+                message_ids_str = manifest_message.text
+                message_ids = []
                 try:
+                    message_ids = [int(mid) for mid in message_ids_str.split()]
+                except ValueError:
+                    await message.reply_text("Error: Batch data in the link's manifest is corrupted. Please try a different link.")
+                    return
+
+                if not message_ids:
+                    await message.reply_text("Invalid batch link or no files found in this batch.")
+                    return
+
+                await message.reply_text(f"Fetching {len(message_ids)} files from the batch. This may take a moment...")
+                
+                for msg_id in message_ids:
+                    try:
+                        await bot.copy_message(
+                            chat_id=message.chat.id,
+                            from_chat_id=Config.DB_CHANNEL,
+                            message_id=msg_id
+                        )
+                        await asyncio.sleep(0.5) # Small delay to prevent hitting flood limits
+                    except FloodWait as e:
+                        await message.reply_text(f"Got FloodWait of {e.value}s. Please wait...")
+                        await asyncio.sleep(e.value + 1)
+                        # Retry after flood wait
+                        await bot.copy_message(
+                            chat_id=message.chat.id,
+                            from_chat_id=Config.DB_CHANNEL,
+                            message_id=msg_id
+                        )
+                    except Exception as e:
+                        print(f"Error forwarding file {msg_id}: {e}")
+                        await message.reply_text(f"Could not forward one of the files from the batch (ID: {msg_id}). It might have been deleted or there was an error: `{e}`")
+            else: # Single file link
+                try:
+                    file_id = int(manifest_message.text)
                     await bot.copy_message(
                         chat_id=message.chat.id,
                         from_chat_id=Config.DB_CHANNEL,
-                        message_id=msg_id
+                        message_id=file_id
                     )
-                    await asyncio.sleep(0.5) # Small delay to prevent hitting flood limits
-                except FloodWait as e:
-                    await message.reply_text(f"Got FloodWait of {e.value}s. Please wait...")
-                    await asyncio.sleep(e.value + 1)
-                    # Retry after flood wait
-                    await bot.copy_message(
-                        chat_id=message.chat.id,
-                        from_chat_id=Config.DB_CHANNEL,
-                        message_id=msg_id
-                    )
+                except ValueError:
+                    await message.reply_text("Error: Single file ID in the link's manifest is corrupted. Please try a different link.")
+                    return
                 except Exception as e:
-                    print(f"Error forwarding file {msg_id}: {e}")
-                    await message.reply_text(f"Could not forward one of the files from the batch (ID: {msg_id}). It might have been deleted or there was an error: `{e}`")
-        elif manifest_message and manifest_message.text: # Single file link
-            try:
-                file_id = int(manifest_message.text)
-                await bot.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=Config.DB_CHANNEL,
-                    message_id=file_id
-                )
-            except Exception as e:
-                await message.reply_text(f"Could not retrieve the single file. It might have been deleted or there was an error: `{e}`")
+                    await message.reply_text(f"Could not retrieve the single file. It might have been deleted or there was an error: `{e}`")
         else:
-            await message.reply_text("Invalid share link. The manifest message might be empty or corrupted.")
+            await message.reply_text("Invalid share link. The manifest message might be empty or corrupted in the database.")
 
     else:
         # Standard welcome message
@@ -658,6 +696,7 @@ async def ban_user_callback(bot: Client, query: CallbackQuery):
         print(f"Error editing ban message or replying: {e}")
 
 # --- Initialize and Run the Bot ---
+# Create the Pyrogram client instance
 app = Client(
     "my_file_store_bot", # A unique name for your session file
     api_id=Config.API_ID,
@@ -667,5 +706,6 @@ app = Client(
 
 if __name__ == "__main__":
     print("Starting bot...")
+    # This runs the bot until it's manually stopped (e.g., Ctrl+C)
     app.run()
     print("Bot stopped.")
