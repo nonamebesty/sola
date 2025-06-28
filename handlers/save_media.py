@@ -15,6 +15,16 @@ from pyrogram.errors import FloodWait
 # IMPORTANT: Replace these with your actual bot details
 # --- Helper Functions ---
 
+class Config:
+    BOT_USERNAME = "your_bot_username"  # <-- REPLACE THIS
+    DB_CHANNEL = -1001234567890         # <-- REPLACE THIS with your DB Channel ID (e.g., -1001234567890)
+    LOG_CHANNEL = -1009876543210        # <-- REPLACE THIS with your Log Channel ID (optional, but recommended)
+
+    # Add your Pyrogram API ID and HASH here
+    API_ID = 1234567                     # <-- REPLACE THIS with your API ID from my.telegram.org
+    API_HASH = "your_api_hash"           # <-- REPLACE THIS with your API Hash from my.telegram.org
+    BOT_TOKEN = "your_bot_token"     
+
 def TimeFormatter(milliseconds: int) -> str:
     """Formats milliseconds into a human-readable string (days, hrs, min, sec)."""
     if not milliseconds:
