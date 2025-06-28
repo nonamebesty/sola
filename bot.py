@@ -39,7 +39,11 @@ from handlers.save_media import (
     save_media_in_channel,
     save_batch_media_in_channel
 )
+from urllib.parse import quote as url_quote
 
+def some_function(url):
+    quoted_url = url_quote(url)
+    return quoted_url
 MediaList = {}
 
 Bot = Client(
@@ -76,8 +80,8 @@ async def start(bot: Client, cmd: Message):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("Support Group", url="https://t.me/AsuranMoviefinder"),
-                        InlineKeyboardButton("Bots Channel", url="https://t.me/JAsuranbots")
+                        InlineKeyboardButton("Support Group", url="https://t.me/asuMoviefinders"),
+                        InlineKeyboardButton("Bots Channel", url="https://t.me/AS_botzz")
                     ],
                     [
                         InlineKeyboardButton("About Bot", callback_data="aboutbot"),
@@ -107,47 +111,7 @@ async def start(bot: Client, cmd: Message):
                 await send_media_and_reply(bot, user_id=cmd.from_user.id, file_id=int(message_ids[i]))
         except Exception as err:
             await cmd.reply_text(f"Something went wrong!\n\n**Error:** `{err}`")
-MediaList = {}
-user_batch_data = {}  # To hold messages for automatic batching
-BATCH_PROCESS_TIMEOUT = 5  # Seconds to wait for more files
 
-async def process_batch_after_delay(bot: Client, user_id: int):
-    """
-    Waits for a timeout, then processes the collected messages for a user.
-    If multiple messages are collected, it generates a batch link.
-    If only one, it directly generates a sharable link for that single file.
-    """
-    # Retrieve the collected messages and the message to edit
-    batch_info = user_batch_data.get(user_id)
-    if not batch_info:
-        return
-
-    messages = batch_info["messages"]
-    editable = batch_info["editable"]
-
-    try:
-        if not messages:
-            # This case is unlikely but good to have
-            await editable.edit("No files were received.")
-            return
-
-        # If only one message was received, process it as a single file
-        if len(messages) == 1:
-            await editable.edit(f"**Detected 1 file. Please wait, generating sharable link...**")
-            await save_media_in_channel(bot, editable=editable, message=messages[0])
-        # If multiple messages were received, process them as a batch
-        else:
-            await editable.edit(f"**Detected {len(messages)} files. Please wait, generating batch link...**")
-            message_ids = [msg.id for msg in messages]
-            await save_batch_media_in_channel(bot=bot, editable=editable, message_ids=message_ids)
-
-    except Exception as e:
-        await editable.edit(f"An error occurred while processing your files!\n\n**Error:** `{e}`")
-        traceback.print_exc()
-    finally:
-        # Important: Clean up the user's data after processing
-        if user_id in user_batch_data:
-            del user_batch_data[user_id]
 
 @Bot.on_message((filters.document | filters.video | filters.audio | filters.photo) & ~filters.chat(Config.DB_CHANNEL))
 async def main(bot: Client, message: Message):
@@ -162,56 +126,23 @@ async def main(bot: Client, message: Message):
                 return
 
         if message.from_user.id in Config.BANNED_USERS:
-            await message.reply_text("Sorry, You are banned!\n\nContact [Support Group](https://t.me/AsuranMoviefinder)",
+            await message.reply_text("Sorry, You are banned!\n\nContact [Support Group](https://t.me/asuMoviefinders)",
                                      disable_web_page_preview=True)
             return
 
         if Config.OTHER_USERS_CAN_SAVE_FILE is False:
             return
 
-        # --- AUTOMATIC BATCH DETECTION AND DIRECT LINK LOGIC ---
-        user_id = message.from_user.id
-        
-        # If a timer is already running for this user, cancel it to reset the countdown
-        if user_id in user_batch_data and user_batch_data[user_id]["timer"]:
-            user_batch_data[user_id]["timer"].cancel()
-
-        # If this is the first file of a new batch, prepare the "shopping cart" for the user
-        if user_id not in user_batch_data:
-            # Send an initial message that we can edit later to show progress
-            editable = await message.reply_text("`Collecting files... Please wait...`", quote=True)
-            user_batch_data[user_id] = {
-                "messages": [],
-                "editable": editable,
-                "timer": None
-            }
-        
-        # Add the new file to the user's list
-        user_batch_data[user_id]["messages"].append(message)
-        
-        # Start a new timer. If another file arrives, this timer will be cancelled and restarted.
-        new_timer = asyncio.create_task(
-            asyncio.sleep(BATCH_PROCESS_TIMEOUT)
+        await message.reply_text(
+            text="**Choose an option from below:**",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Save in Batch", callback_data="addToBatchTrue")],
+                [InlineKeyboardButton("Single Link", callback_data="addToBatchFalse")]
+            ]),
+            quote=True,
+            disable_web_page_preview=True
         )
-        user_batch_data[user_id]["timer"] = new_timer
-        
-        try:
-            # Wait for the timer to complete
-            await new_timer
-            # If the timer completes without being cancelled, it means the user has stopped sending files.
-            # Now, process everything we have collected.
-            await process_batch_after_delay(bot, user_id)
-        except asyncio.CancelledError:
-            # This error means another file arrived. We have already reset the timer.
-            # Let's update the message to let the user know we're still collecting.
-            num_files = len(user_batch_data[user_id]["messages"])
-            await user_batch_data[user_id]["editable"].edit(
-                f"**Collected {num_files} files... Waiting for more...**"
-            )
-        # --- END OF AUTOMATIC LOGIC ---
-
     elif message.chat.type == enums.ChatType.CHANNEL:
-        # This part for handling public channels remains the same.
         if (message.chat.id == int(Config.LOG_CHANNEL)) or (message.chat.id == int(Config.UPDATES_CHANNEL)) or message.forward_from_chat or message.forward_from:
             return
         elif int(message.chat.id) in Config.BANNED_CHAT_IDS:
@@ -223,7 +154,7 @@ async def main(bot: Client, message: Message):
         try:
             forwarded_msg = await message.forward(Config.DB_CHANNEL)
             file_er_id = str(forwarded_msg.id)
-            share_link = f"https://t.me/{Config.BOT_USERNAME}?start=JAsuran_{str_to_b64(file_er_id)}"
+            share_link = f"https://t.me/{Config.BOT_USERNAME}?start=AsBots_{str_to_b64(file_er_id)}"
             CH_edit = await bot.edit_message_reply_markup(message.chat.id, message.id,
                                                           reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(
                                                               "Get Sharable Link", url=share_link)]]))
@@ -247,9 +178,7 @@ async def main(bot: Client, message: Message):
                 chat_id=int(Config.LOG_CHANNEL),
                 text=f"#ERROR_TRACEBACK:\nGot Error from `{str(message.chat.id)}` !!\n\n**Traceback:** `{err}`",
                 disable_web_page_preview=True
-        )
-
-
+            )
 
 
 @Bot.on_message(filters.private & filters.command("broadcast") & filters.user(Config.BOT_OWNER) & filters.reply)
@@ -427,8 +356,8 @@ async def button(bot: Client, cmd: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("Support Group", url="https://t.me/AsuranMoviefinder"),
-                        InlineKeyboardButton("Bots Channel", url="https://t.me/JAsuranbots")
+                        InlineKeyboardButton("Support Group", url="https://t.me/moviekoodu1"),
+                        InlineKeyboardButton("Bots Channel", url="https://t.me/AS_botzz")
                     ],
                     [
                         InlineKeyboardButton("About Bot", callback_data="aboutbot"),
@@ -448,7 +377,7 @@ async def button(bot: Client, cmd: CallbackQuery):
                 user = await bot.get_chat_member(channel_chat_id, cmd.message.chat.id)
                 if user.status == "kicked":
                     await cmd.message.edit(
-                        text="Sorry Sir, You are Banned to use me. Contact my [Support Group](https://t.me/AsuranMoviefinder).",
+                        text="Sorry Sir, You are Banned to use me. Contact my [Support Group](https://t.me/AsuMoviefinders).",
                         disable_web_page_preview=True
                     )
                     return
@@ -471,7 +400,7 @@ async def button(bot: Client, cmd: CallbackQuery):
                 return
             except Exception:
                 await cmd.message.edit(
-                    text="Something went Wrong. Contact my [Support Group](https://t.me/AsuranMoviefinder).",
+                    text="Something went Wrong. Contact my [Support Group](https://t.me/moviekoodu1).",
                     disable_web_page_preview=True
                 )
                 return
@@ -481,8 +410,8 @@ async def button(bot: Client, cmd: CallbackQuery):
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("Support Group", url="https://t.me/AsuranMoviefinder"),
-                        InlineKeyboardButton("Bots Channel", url="https://t.me/JAsuranbots")
+                        InlineKeyboardButton("Support Group", url="https://t.me/moviekoodu1"),
+                        InlineKeyboardButton("Bots Channel", url="https://t.me/AS_botzz")
                     ],
                     [
                         InlineKeyboardButton("About Bot", callback_data="aboutbot"),
@@ -506,56 +435,35 @@ async def button(bot: Client, cmd: CallbackQuery):
         except Exception as e:
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
-    if "addToBatchTrue" in cb_data:
-        # Ensure MediaList exists for the user
-        if cmd.from_user.id not in MediaList:
-            MediaList[cmd.from_user.id] = []
-
-        # Get the ID of the message that the button was replied to
+    elif "addToBatchTrue" in cb_data:
+        if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
+            MediaList[f"{str(cmd.from_user.id)}"] = []
         file_id = cmd.message.reply_to_message.id
-        MediaList[cmd.from_user.id].append(file_id)
+        MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
+        await cmd.message.edit("File Saved in Batch!\n\n"
+                               "Press below button to get batch link.",
+                               reply_markup=InlineKeyboardMarkup([
+                                   [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
+                                   [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
+                               ]))
 
-        # Confirm addition and offer next steps
-        await cmd.message.edit(
-            "File added to your batch!\n\n"
-            "You can keep adding more files, or press the button below to get the batch link.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
-                [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
-            ])
-        )
-
-    # The 'addToBatchFalse' callback might become redundant if 'main' now auto-generates single links.
-    # If you still want a button that explicitly triggers a single link save, keep this:
     elif "addToBatchFalse" in cb_data:
         await save_media_in_channel(bot, editable=cmd.message, message=cmd.message.reply_to_message)
-        # You might want to update the message after saving to say "Link generated!"
-        # The save_media_in_channel function should ideally handle editing 'editable' with the link.
 
-    # This callback is for generating the final batch link from the collected MediaList.
     elif "getBatchLink" in cb_data:
-        message_ids = MediaList.get(cmd.from_user.id, None)
-        if message_ids is None or not message_ids: # Check if list is empty or None
-            await cmd.answer("Your batch list is empty! Please add files first.", show_alert=True)
+        message_ids = MediaList.get(f"{str(cmd.from_user.id)}", None)
+        if message_ids is None:
+            await cmd.answer("Batch List Empty!", show_alert=True)
             return
-
         await cmd.message.edit("Please wait, generating batch link ...")
-        # This function should update the 'editable' message with the final link
         await save_batch_media_in_channel(bot=bot, editable=cmd.message, message_ids=message_ids)
-        MediaList[cmd.from_user.id] = [] # Clear the batch after processing
+        MediaList[f"{str(cmd.from_user.id)}"] = []
 
-    # This remains the same, for closing the inline keyboard message.
     elif "closeMessage" in cb_data:
         await cmd.message.delete(True)
 
-    # --- END OF MODIFIED BATCH HANDLING CALLBACKS ---
-
     try:
-        await cmd.answer() # Always answer the callback query to remove the loading animation
-    except QueryIdInvalid:
-        # This can happen if the message was edited/deleted by another async task
-        # or if the query ID has expired. It's safe to just pass here.
-        pass
+        await cmd.answer()
+    except QueryIdInvalid: pass
 
 Bot.run()
-
