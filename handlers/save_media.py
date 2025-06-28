@@ -1,6 +1,6 @@
 import asyncio
 import traceback
-from configs import config
+from configs import Config
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message,
