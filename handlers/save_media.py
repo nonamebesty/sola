@@ -1,5 +1,6 @@
 import asyncio
 import traceback
+from configs import config
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message,
@@ -12,12 +13,12 @@ from pyrogram.errors import FloodWait, MessageNotModified
 
 # --- Configuration Class (unchanged, just showing context) ---
 class Config:
-    BOT_USERNAME = "your_bot_username"
-    DB_CHANNEL = -1001234567890
-    LOG_CHANNEL = -1009876543210
-    API_ID = 1234567
-    API_HASH = "your_api_hash"
-    BOT_TOKEN = "your_bot_token"
+    BOT_USERNAME = ""
+    DB_CHANNEL = 
+    LOG_CHANNEL = 
+    API_ID = 
+    API_HASH = ""
+    BOT_TOKEN = ""
 
 # --- Helper Functions (unchanged) ---
 def TimeFormatter(milliseconds: int) -> str:
