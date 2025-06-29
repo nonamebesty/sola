@@ -3,10 +3,10 @@
 import asyncio
 import traceback
 from base64 import urlsafe_b64encode
-from asyncio.exceptions import TimeoutError
+# from asyncio.exceptions import TimeoutError # No longer needed for bot.ask()
 
 from configs import Config
-from pyrogram import Client
+from pyrogram import Client, filters # Import filters
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
@@ -14,14 +14,19 @@ from pyrogram.types import (
 )
 from pyrogram.errors import FloodWait
 
-# Assuming Config is set up correctly in configs.py
-# Assuming you have a full Client setup elsewhere in your main file.
+# --- GLOBAL STATE STORAGE (Alternative to Client.ask()) ---
+user_states = {} # To store the current conversation state for each user
+user_data = {}   # To temporarily store data needed for the conversation (e.g., the editable message)
 
-# --- Helper Functions ---
+# Define conversation states
+BATCH_STATE_WAITING_FOR_CAPTION = "waiting_for_batch_caption"
+IDLE_STATE = "idle"
+# --- END GLOBAL STATE STORAGE ---
 
+
+# --- Helper Functions (unchanged) ---
 def str_to_b64(text: str) -> str:
     """Encodes a string to a URL-safe Base64 string."""
-    # This helper was imported, so I'm defining it here for a self-contained script.
     return urlsafe_b64encode(text.encode("ascii")).decode("ascii").strip("=")
 
 def TimeFormatter(milliseconds: int) -> str:
@@ -82,18 +87,18 @@ async def forward_to_channel(bot: Client, message: Message, editable: Message):
             )
         return None
 
-# --- MODIFIED FUNCTION WITH NEW FEATURE ---
+# --- MODIFIED FUNCTION WITHOUT Client.ask() ---
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
     """
-    Saves a batch of media, generates a link, AND asks the user for a custom caption.
+    Saves a batch of media, generates a link, AND asks the user for a custom caption
+    using a state-based approach.
     """
+    user_id = editable.chat.id
     try:
         if not Config.DB_CHANNEL:
             await editable.edit("Bot owner has not configured the DB_CHANNEL. Please contact support.")
             return
 
-        # Ensure we always update the message content to avoid MESSAGE_NOT_MODIFIED
-        # if this function is called immediately after another edit.
         await editable.edit("Processing batch... Please wait.")
         
         messages_to_process = await bot.get_messages(chat_id=editable.chat.id, message_ids=message_ids)
@@ -103,7 +108,6 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             await editable.edit("No valid media files found in the batch to save.")
             return
             
-        # Provide clear progress messages
         await editable.edit(f"Saving {len(valid_messages)} files to the database channel... This may take a moment.")
 
         message_ids_str = ""
@@ -112,13 +116,12 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             if sent_message is None:
                 continue
             message_ids_str += f"{str(sent_message.id)} "
-            await asyncio.sleep(2) # Added a small delay to prevent rate limits
+            await asyncio.sleep(2)
 
         if not message_ids_str.strip():
             await editable.edit("Could not save any files from the batch. This might be a permission issue in the database channel.")
             return
 
-        # Save the list of forwarded message IDs in the DB_CHANNEL
         SaveMessage = await bot.send_message(
             chat_id=Config.DB_CHANNEL,
             text=message_ids_str.strip(),
@@ -129,73 +132,36 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         )
         share_link = f"https://nammatvserial.jasurun.workers.dev?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
 
-        # --- NEW: Ask for caption ---
-        custom_caption = "Batch Files" # Default caption
-        try:
-            # Edit the message to ask for caption to avoid MESSAGE_NOT_MODIFIED with the old text
-            await editable.edit(
-                "✅ Batch link generated!\n\nPlease send the caption for this batch.\n\nType `/cancel` to skip.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Cancel Caption", callback_data="cancel_caption")
-                ]]) # Offer a button to cancel as well
-            )
-            caption_message = await bot.ask(
-                chat_id=editable.chat.id,
-                filters=None, # Allow any message type for caption, will only use text
-                timeout=300  # 5-minute timeout
-            )
-            
-            if caption_message:
-                if caption_message.text and caption_message.text.lower() == "/cancel":
-                    await editable.edit("Caption skipped. Using default caption.")
-                elif caption_message.text:
-                    custom_caption = caption_message.text
-                else:
-                    await editable.edit("No text provided for caption. Using default caption.")
-            else: # If caption_message is None (e.g., due to disconnection)
-                await editable.edit("Caption input failed. Using default caption.")
-                
-        except TimeoutError:
-            await editable.edit("⚠️ Request for caption timed out. Using default caption.")
-        except Exception as e:
-            print(f"Caption asking error: {e}")
-            await editable.edit(f"An error occurred while asking for caption. Using default.\nError: `{e}`")
+        # --- ALTERNATIVE TO Client.ask(): Set user state and ask ---
+        user_states[user_id] = BATCH_STATE_WAITING_FOR_CAPTION
+        user_data[user_id] = {
+            "batch_link": share_link,
+            "editable_message_id": editable.id, # Store editable message ID
+            "chat_id": editable.chat.id # Store chat ID
+        }
 
-        # --- Construct final post with the custom caption ---
-        final_text = f"**{custom_caption}**\n\n{share_link}"
-        
-        # Finally, update the editable message with the batch link and custom caption
+        # Edit the message to ask for caption
         await editable.edit(
-            text=final_text,
-            reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("Open Link", url=share_link)],
-                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
-                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
-            ),
-            disable_web_page_preview=True
+            "✅ Batch link generated!\n\nPlease send the caption for this batch.\n\nType `/cancel` to skip.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("Cancel Caption", callback_data="cancel_caption_batch")
+            ]])
         )
+        # The rest of the process will be handled by the new message handler below
 
-        if Config.LOG_CHANNEL:
-            user = editable.chat
-            log_text = (f"#BATCH_SAVE:\n\n"
-                        f"**User:** [{user.first_name or user.title}](tg://user?id={user.id})\n"
-                        f"**Caption:** `{custom_caption}`\n"
-                        f"Got Batch Link!")
-            await bot.send_message(
-                chat_id=int(Config.LOG_CHANNEL),
-                text=log_text,
-                disable_web_page_preview=True,
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Open Link", url=share_link)]])
-            )
     except Exception as err:
         error_details = traceback.format_exc()
-        # Always try to edit the message with the error, even if it might fail.
         try:
             await editable.edit(f"Something Went Wrong during batch save!\n\n**Error:** `{err}`")
         except Exception as edit_err:
             print(f"Failed to edit message with error: {edit_err}")
-            # If `editable` couldn't be edited, send a new message
             await bot.send_message(editable.chat.id, f"Something Went Wrong during batch save!\n\n**Error:** `{err}`")
+
+        # Clean up state in case of error
+        if user_id in user_states:
+            del user_states[user_id]
+        if user_id in user_data:
+            del user_data[user_id]
 
         if Config.LOG_CHANNEL:
             await bot.send_message(
@@ -264,16 +230,187 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
                 )
             )
 
+# --- NEW MESSAGE HANDLER FOR CAPTION INPUT ---
+@Client.on_message(filters.text & filters.private) # Adjust filters as needed (e.g., only from private chats)
+async def handle_caption_input(client: Client, message: Message):
+    user_id = message.from_user.id
+    
+    # Check if the user is in the state of waiting for a batch caption
+    if user_states.get(user_id) == BATCH_STATE_WAITING_FOR_CAPTION:
+        if user_id not in user_data:
+            # Should not happen if flow is correct, but for safety
+            await message.reply_text("Error: No pending batch operation found. Please restart the process.")
+            user_states.pop(user_id, None)
+            return
+
+        batch_info = user_data[user_id]
+        share_link = batch_info["batch_link"]
+        editable_message_id = batch_info["editable_message_id"]
+        chat_id = batch_info["chat_id"]
+
+        try:
+            # Try to get the editable message. It might have been deleted or inaccessible.
+            editable_message = await client.get_messages(chat_id, editable_message_id)
+        except Exception:
+            # If we can't get the original editable message, send a new one
+            editable_message = None
+
+        custom_caption = "Batch Files" # Default caption
+        if message.text and message.text.lower() == "/cancel":
+            if editable_message:
+                await editable_message.edit("Caption skipped. Using default caption.")
+            else:
+                await client.send_message(chat_id, "Caption skipped. Using default caption.")
+        elif message.text:
+            custom_caption = message.text
+        else:
+            if editable_message:
+                await editable_message.edit("No text provided for caption. Using default caption.")
+            else:
+                await client.send_message(chat_id, "No text provided for caption. Using default caption.")
+
+        # Construct final post with the custom caption
+        final_text = f"**{custom_caption}**\n\n{share_link}"
+        
+        # Now, update the editable message with the batch link and custom caption
+        if editable_message:
+            try:
+                await editable_message.edit(
+                    text=final_text,
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Open Link", url=share_link)],
+                         [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
+                          InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
+                    ),
+                    disable_web_page_preview=True
+                )
+            except Exception as edit_err:
+                print(f"Failed to edit final message: {edit_err}")
+                await client.send_message(
+                    chat_id,
+                    text=final_text,
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Open Link", url=share_link)],
+                         [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
+                          InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
+                    ),
+                    disable_web_page_preview=True
+                )
+        else:
+            # If original message was inaccessible, send a new one
+            await client.send_message(
+                chat_id,
+                text=final_text,
+                reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("Open Link", url=share_link)],
+                     [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
+                      InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
+                ),
+                disable_web_page_preview=True
+            )
+
+        if Config.LOG_CHANNEL:
+            user = message.from_user # Use message.from_user for logging the caption provider
+            log_text = (f"#BATCH_SAVE:\n\n"
+                        f"**User:** [{user.first_name or user.title}](tg://user?id={user.id})\n"
+                        f"**Caption:** `{custom_caption}`\n"
+                        f"Got Batch Link!")
+            await client.send_message(
+                chat_id=int(Config.LOG_CHANNEL),
+                text=log_text,
+                disable_web_page_preview=True,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Open Link", url=share_link)]])
+            )
+        
+        # Reset user state after completion
+        user_states[user_id] = IDLE_STATE
+        user_data.pop(user_id, None)
+
+    # You might have other message handlers here for other commands/interactions
+    elif user_states.get(user_id) == IDLE_STATE or user_states.get(user_id) is None:
+        # This is a regular message, not part of a conversation flow
+        # Your existing command handlers (e.g., /start, /batch) would go here
+        pass
+
+# --- NEW CALLBACK QUERY HANDLER for "Cancel Caption" ---
+@Client.on_callback_query(filters.regex("^cancel_caption_batch$"))
+async def cancel_batch_caption_callback(client: Client, callback_query):
+    user_id = callback_query.from_user.id
+    
+    if user_states.get(user_id) == BATCH_STATE_WAITING_FOR_CAPTION:
+        if user_id in user_data:
+            batch_info = user_data[user_id]
+            share_link = batch_info["batch_link"]
+            editable_message_id = batch_info["editable_message_id"]
+            chat_id = batch_info["chat_id"]
+
+            try:
+                editable_message = await client.get_messages(chat_id, editable_message_id)
+            except Exception:
+                editable_message = None
+
+            custom_caption = "Batch Files (Caption Skipped)"
+            final_text = f"**{custom_caption}**\n\n{share_link}"
+
+            if editable_message:
+                try:
+                    await editable_message.edit(
+                        text=final_text,
+                        reply_markup=InlineKeyboardMarkup(
+                            [[InlineKeyboardButton("Open Link", url=share_link)],
+                             [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
+                              InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
+                        ),
+                        disable_web_page_preview=True
+                    )
+                except Exception as edit_err:
+                    print(f"Failed to edit message on cancel: {edit_err}")
+                    await client.send_message(chat_id, f"Caption skipped. Here's your link: {share_link}")
+            else:
+                await client.send_message(chat_id, f"Caption skipped. Here's your link: {share_link}")
+
+            await callback_query.answer("Caption request cancelled.")
+            user_states[user_id] = IDLE_STATE
+            user_data.pop(user_id, None)
+        else:
+            await callback_query.answer("No active batch operation to cancel.", show_alert=True)
+            user_states.pop(user_id, None) # Clear state if data is missing
+    else:
+        await callback_query.answer("You are not in a caption input state.", show_alert=True)
+        
 # ---
-# You would need to add your Pyrogram Client initialization and message handlers
-# below this line for the bot to be fully functional.
-# For example:
+# You need to ensure your main Pyrogram client setup is correct and registers these handlers.
+# Example (assuming `app` is your Client instance):
 #
-# app = Client("my_bot", api_id=Config.API_ID, api_hash=Config.API_HASH, bot_token=Config.BOT_TOKEN)
+# from pyrogram import Client
 #
-# @app.on_message(...)
-# async def my_handler(client, message):
-#     ...
+# app = Client(
+#     "my_bot",
+#     api_id=Config.API_ID,
+#     api_hash=Config.API_HASH,
+#     bot_token=Config.BOT_TOKEN,
+#     plugins={"root": "plugins"} # If you organize handlers in plugins
+# )
+#
+# # It's good practice to add a default handler to reset states if needed,
+# # or to inform users if they type something unexpected.
+# @app.on_message(filters.command("start"))
+# async def start_command(client, message):
+#     user_states[message.from_user.id] = IDLE_STATE
+#     user_data.pop(message.from_user.id, None) # Clear any leftover data
+#     await message.reply_text("Hello! I'm your bot.")
+#
+# # Make sure your /batch command or whatever triggers save_batch_media_in_channel
+# # is also defined and correctly calls it.
+# # For example:
+# @app.on_message(filters.command("batch") & filters.private)
+# async def process_batch_command(client, message):
+#     # Dummy message_ids for testing
+#     # In your actual implementation, you'd get these from user selection or other logic
+#     message_ids = [message.id - 1, message.id - 2] # Example: last two messages
+#     editable_msg = await message.reply_text("Starting batch process...")
+#     await save_batch_media_in_channel(client, editable_msg, message_ids)
+#
 #
 # app.run()
 # ---
