@@ -9,6 +9,7 @@ from pyrogram.types import (
     InlineKeyboardButton
 )
 from pyrogram.errors import FloodWait
+from handlers.helpers import str_to_b64
 # Assuming handlers.helpers.str_to_b64 is correctly defined and imported
 # For a full self-contained solution, you might want to move b64_to_str here too.
 # For now, we assume str_to_b64 is correctly imported and b64_to_str is somewhere else needed for /start.
