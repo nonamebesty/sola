@@ -34,6 +34,7 @@ def str_to_b64(text: str) -> str:
     return urlsafe_b64encode(text.encode("ascii")).decode("ascii").strip("=")
 
 def TimeFormatter(milliseconds: int) -> str:
+    """Formats milliseconds into a human-readable string."""
     if not milliseconds:
         return "N/A"
     seconds, milliseconds = divmod(int(milliseconds), 1000)
@@ -48,6 +49,7 @@ def TimeFormatter(milliseconds: int) -> str:
     return tmp[:-2] if tmp else "0 sec"
 
 def humanbytes(size):
+    """Converts bytes to human-readable format (KB, MB, GB, TB)."""
     if not size:
         return "0 B"
     power = 2**10
@@ -59,11 +61,13 @@ def humanbytes(size):
     return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
 
 def human_size(bytes, units=[' bytes','KB','MB','GB','TB', 'PB', 'EB']):
+    """Alternative function for human-readable size, recursive."""
     return str(bytes) + units[0] if int(bytes) < 1024 else human_size(int(bytes)>>10, units[1:])
 
 # --- Core Logic Functions ---
 
 async def forward_to_channel(bot: Client, message: Message, editable: Message):
+    """Forwards a message to the configured DB_CHANNEL."""
     try:
         __SENT = await message.forward(Config.DB_CHANNEL)
         return __SENT
@@ -80,7 +84,7 @@ async def forward_to_channel(bot: Client, message: Message, editable: Message):
                         [[InlineKeyboardButton("Ban User", callback_data=f"ban_user_{str(editable.chat.id)}")]]
                     )
                 )
-        return await forward_to_channel(bot, message, editable)
+        return await forward_to_channel(bot, message, editable) # Retry after FloodWait
     except Exception as e:
         print(f"Error forwarding message: {e}")
         if Config.LOG_CHANNEL:
@@ -91,7 +95,7 @@ async def forward_to_channel(bot: Client, message: Message, editable: Message):
             )
         return None
 
-# --- MODIFIED FUNCTION WITHOUT Client.ask() ---
+# --- MODIFIED FUNCTION WITH FIX FOR MESSAGE_NOT_MODIFIED ---
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
     """
     Saves a batch of media, generates a link, AND asks the user for a custom caption
@@ -106,19 +110,23 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             user_data.pop(user_id, None)
             return
 
-        # Ensure we always update the message content to avoid MESSAGE_NOT_MODIFIED
-        await editable.edit("Processing batch... Please wait.")
+        # --- FIX FOR MESSAGE_NOT_MODIFIED ---
+        # Only edit if the text is different from what we want to set it to.
+        # This prevents the 400 MESSAGE_NOT_MODIFIED error if the initial
+        # message (e.g., "Initializing...") is edited to the same "Processing batch..." text.
+        if editable.text != "Processing batch... Please wait.":
+            await editable.edit("Processing batch... Please wait.")
         
         messages_to_process = await bot.get_messages(chat_id=editable.chat.id, message_ids=message_ids)
         valid_messages = [msg for msg in messages_to_process if msg.media]
 
         if not valid_messages:
             await editable.edit("No valid media files found in the batch to save.")
-            # Clear state
             user_states.pop(user_id, None)
             user_data.pop(user_id, None)
             return
             
+        # This edit will naturally be different from the previous one, so no explicit check needed.
         await editable.edit(f"Saving {len(valid_messages)} files to the database channel... This may take a moment.")
 
         message_ids_str = ""
@@ -127,11 +135,10 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             if sent_message is None:
                 continue # Skip if forwarding failed for this message
             message_ids_str += f"{str(sent_message.id)} "
-            await asyncio.sleep(2) # Added a small delay to prevent rate limits
+            await asyncio.sleep(2) # Added a small delay to prevent Telegram API rate limits
 
         if not message_ids_str.strip():
             await editable.edit("Could not save any files from the batch. This might be a permission issue in the database channel.")
-            # Clear state
             user_states.pop(user_id, None)
             user_data.pop(user_id, None)
             return
@@ -154,9 +161,9 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             "editable_message_id": editable.id,
             "chat_id": editable.chat.id
         }
-        print(f"DEBUG: User {user_id} state set to: {user_states.get(user_id)}") # Debug print
+        print(f"DEBUG: User {user_id} state set to: {user_states.get(user_id)}") # Debug print to logs
 
-        # Edit the message to ask for caption
+        # Edit the message to ask for caption (will be different from previous text)
         await editable.edit(
             "✅ Batch link generated!\n\nPlease send the caption for this batch.\n\nType `/cancel` to skip.",
             reply_markup=InlineKeyboardMarkup([[
@@ -173,7 +180,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             print(f"Failed to edit message with error: {edit_err}: {edit_err}")
             await bot.send_message(editable.chat.id, f"Something Went Wrong during batch save!\n\n**Error:** `{err}`")
 
-        # Clean up state in case of error
+        # Clean up state in case of error, to prevent stale conversations
         user_states.pop(user_id, None)
         user_data.pop(user_id, None)
 
@@ -188,8 +195,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             )
 
 async def save_media_in_channel(bot: Client, editable: Message, message: Message):
-    # This function remains largely unchanged as the request was for batch files.
-    # Added robust error handling for editable.edit
+    """Saves a single media file to the database channel and provides a shareable link."""
     try:
         forwarded_msg = await message.forward(int(Config.DB_CHANNEL)) # Ensure DB_CHANNEL is an integer
         file_er_id = str(forwarded_msg.id)
@@ -248,10 +254,6 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
 # --- NEW MESSAGE HANDLER FOR CAPTION INPUT ---
 # This handler must be registered with your Pyrogram Client instance.
 # Example: app.add_handler(MessageHandler(handle_caption_input, filters.text & filters.private))
-# Or using the decorator syntax:
-# @app.on_message(filters.text & filters.private) if `app` is globally defined
-# For this example, assuming 'bot' is the client instance passed around or accessible.
-# YOU NEED TO ENSURE THIS HANDLER IS REGISTERED IN YOUR MAIN BOT FILE!
 async def handle_caption_input(client: Client, message: Message):
     user_id = message.from_user.id
     
@@ -417,81 +419,97 @@ async def cancel_batch_caption_callback(client: Client, callback_query: Callback
 
 # --- YOU NEED TO ADD YOUR PYROGRAM CLIENT INITIALIZATION AND HANDLER REGISTRATION ---
 # This part is crucial for your bot to function.
-# Here's a common example of how your main bot file might look:
+# Here's a common example of how your main bot file might look.
+# Make sure to set Config.API_ID, Config.API_HASH, Config.BOT_TOKEN, Config.DB_CHANNEL, Config.LOG_CHANNEL
+# either via environment variables or directly in a configs.py file.
 
 # import os
-# from pyrogram import Client, filters
-# from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-#
-# # Assuming the code above (functions, global vars) is in a file like 'bot_logic.py'
-# # If this is all in one file, just uncomment and set up the Client instance.
-#
+# # Assuming the functions above are in the same file or imported correctly.
+
+# # Example Config class (if not in a separate configs.py)
 # # class Config:
-# #     API_ID = os.environ.get("API_ID")
-# #     API_HASH = os.environ.get("API_HASH")
-# #     BOT_TOKEN = os.environ.get("BOT_TOKEN")
-# #     DB_CHANNEL = int(os.environ.get("DB_CHANNEL")) # Ensure it's an int
-# #     LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL")) # Ensure it's an int
-#
+# #     API_ID = os.environ.get("API_ID", 1234567) # Replace with your actual API_ID
+# #     API_HASH = os.environ.get("API_HASH", "your_api_hash_here") # Replace with your actual API_HASH
+# #     BOT_TOKEN = os.environ.get("BOT_TOKEN", "your_bot_token_here") # Replace with your actual BOT_TOKEN
+# #     DB_CHANNEL = int(os.environ.get("DB_CHANNEL", -1001234567890)) # Replace with your DB channel ID
+# #     LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", -1001234567891)) # Replace with your Log channel ID
+
+# # Initialize your Pyrogram Client
 # app = Client(
 #     "my_bot_session", # Session name
 #     api_id=Config.API_ID,
 #     api_hash=Config.API_HASH,
 #     bot_token=Config.BOT_TOKEN,
-#     # In Pyrogram v1, if you use plugins, this is how you'd load them:
-#     # plugins=dict(root="plugins_folder_name")
 # )
-#
+
+# # --- REGISTER YOUR HANDLERS ---
+# # Register the start command handler
 # @app.on_message(filters.command("start") & filters.private)
 # async def start_command(client, message):
 #     user_id = message.from_user.id
 #     user_states[user_id] = IDLE_STATE # Ensure user state is clean on start
 #     user_data.pop(user_id, None)
 #     await message.reply_text("Hello! I'm your batch link bot. Send me /batch to create a link.")
-#
-# # Example handler to trigger save_batch_media_in_channel
+
+# # Register the handler that triggers the batch save process
 # @app.on_message(filters.command("batch") & filters.private)
 # async def trigger_batch_save(client, message):
-#     # In a real scenario, you'd get these message_ids from a user selecting files,
-#     # or a range of messages. This is just a dummy example.
-#     # For demonstration, let's assume the user replies to the first message of a batch
-#     # or sends /batch then selects messages.
-#     # You need to implement how you collect message_ids.
-#     # For a simple test, you could ask the user to reply to the first message of the batch
-#     # and then get messages from that point.
-#
-#     # For a quick test, let's assume you're getting message IDs from somewhere.
-#     # For example, if you want to save the last 3 messages before the /batch command
-#     # This is a very rough example, adjust based on how users select messages.
-#     # You would need to fetch the messages and get their IDs.
-#     # For a robust solution, consider a "select messages" phase.
-#     # Example for testing:
-#     # reply_to_id = message.reply_to_message.id if message.reply_to_message else message.id
-#     # messages_to_save = []
-#     # async for msg in client.iter_history(chat_id=message.chat.id, offset_id=reply_to_id, limit=5):
-#     #     if msg.media:
-#     #         messages_to_save.append(msg.id)
-#     # message_ids = messages_to_save
-#
-#     # DUMMY message_ids FOR TESTING - REPLACE WITH REAL LOGIC
-#     # This will attempt to save message.id and message.id - 1
-#     message_ids = [message.id, message.id - 1] # ADJUST THIS LOGIC TO GET ACTUAL MESSAGE IDs
-#     if len(message_ids) < 1:
-#         await message.reply_text("Please specify messages to batch, or use this command by replying to the first message of your batch.")
+#     # --- IMPORTANT: You need to implement proper logic to get message_ids ---
+#     # This is a DUMMY example. In a real scenario, you'd
+#     # 1. Ask the user to forward messages or select them.
+#     # 2. Store selected message_ids.
+#     # 3. Then pass them to save_batch_media_in_channel.
+#     #
+#     # For a quick test, this might attempt to get the current message and the one before it.
+#     # Ensure these messages are actually media.
+#     message_ids = []
+#     if message.reply_to_message:
+#         # If the /batch command is a reply to the first message of a series
+#         # You might fetch a few messages from history starting from reply_to_message.id
+#         async for msg in client.iter_history(
+#             chat_id=message.chat.id,
+#             offset_id=message.reply_to_message.id,
+#             limit=5 # Adjust limit based on expected batch size
+#         ):
+#             if msg.media:
+#                 message_ids.append(msg.id)
+#     else:
+#         # If /batch is sent without replying, you might prompt user or get last few.
+#         # For simple testing:
+#         async for msg in client.iter_history(chat_id=message.chat.id, limit=5):
+#             if msg.media:
+#                 message_ids.append(msg.id)
+#     
+#     if not message_ids:
+#         await message.reply_text("No media messages found to create a batch. Please reply to the first message of your batch or send media before using /batch.")
 #         return
 #
-#     editable_msg = await message.reply_text("Initiating batch processing...")
+#     # The initial message for 'editable_msg' should be DIFFERENT from "Processing batch..."
+#     editable_msg = await message.reply_text("Initializing batch processing...") # Changed initial text
 #     await save_batch_media_in_channel(client, editable_msg, message_ids)
-#
-# # Register the new handlers
+
+# # Register the state-based message handler for caption input
 # app.add_handler(MessageHandler(handle_caption_input, filters.text & filters.private))
+# # Register the callback query handler for "Cancel Caption" button
 # app.add_handler(CallbackQueryHandler(cancel_batch_caption_callback, filters.regex("^cancel_caption_batch$")))
-#
+
 # # You might also want to register save_media_in_channel for single file saves.
-# # @app.on_message(filters.media & filters.private & ~filters.group & ~filters.channel)
-# # async def save_single_file(client, message):
-# #     editable_msg = await message.reply_text("Saving file...")
+# # Example for single file save handler:
+# # @app.on_message(filters.media & filters.private)
+# # async def save_single_file_handler(client, message):
+# #     # Check if the user is in an existing conversation state.
+# #     # If they are, this message might be their caption. If not, proceed with single file save.
+# #     user_id = message.from_user.id
+# #     if user_states.get(user_id) == BATCH_STATE_WAITING_FOR_CAPTION:
+# #         # This message is likely intended as a caption for a batch,
+# #         # so let the handle_caption_input process it if it matches filters.
+# #         # Otherwise, you might want to inform the user they are in a conversation.
+# #         await message.reply_text("You are currently in a batch captioning process. Please send your caption or /cancel.")
+# #         return
+# #     
+# #     editable_msg = await message.reply_text("Saving single file...")
 # #     await save_media_in_channel(client, editable_msg, message)
-#
+
+
 # print("Bot starting...")
 # app.run() # Start the bot
