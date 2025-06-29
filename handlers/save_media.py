@@ -136,7 +136,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Open Link", url=share_link)],
                  [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
-                  InlineKeyboardButton("Support Group", url="https://telegram.me/asumoviefinderss")]]
+                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
             ),
             disable_web_page_preview=True
         )
@@ -198,7 +198,7 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
         share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(file_er_id)}"
 
         # Construct reply_text using the now-defined variables
-        reply_text = f"**{caption}**\n\n**Size:** {file_size} {duration_str}\n\n**Link:** `{share_link}`"
+        reply_text = f"**{caption}**\n\n**Size:** {file_size} {duration_str}\n\n**Link:**{share_link}"
 
         await editable.edit(
             text=reply_text, # Use the constructed reply_text
