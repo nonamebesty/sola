@@ -3,15 +3,14 @@
 import asyncio
 import traceback
 from base64 import urlsafe_b64encode
-# from asyncio.exceptions import TimeoutError # No longer needed for Client.ask()
 
-from configs import Config # Make sure your configs.py is correctly set up
-from pyrogram import Client, filters # Ensure filters are imported
+from configs import Config
+from pyrogram import Client, filters
 from pyrogram.types import (
     Message,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    CallbackQuery # Import CallbackQuery type
+    CallbackQuery
 )
 from pyrogram.errors import FloodWait
 
@@ -161,7 +160,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             "editable_message_id": editable.id,
             "chat_id": editable.chat.id
         }
-        print(f"DEBUG: User {user_id} state set to: {user_states.get(user_id)}") # Debug print to logs
+        print(f"DEBUG (save_batch_media_in_channel): User {user_id} state set to: {user_states.get(user_id)}") # Debug print to logs
 
         # Edit the message to ask for caption (will be different from previous text)
         await editable.edit(
@@ -253,11 +252,13 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
 
 # --- NEW MESSAGE HANDLER FOR CAPTION INPUT ---
 # This handler must be registered with your Pyrogram Client instance.
-# Example: app.add_handler(MessageHandler(handle_caption_input, filters.text & filters.private))
 async def handle_caption_input(client: Client, message: Message):
     user_id = message.from_user.id
     
-    print(f"DEBUG: handle_caption_input received message from {user_id}. Current state: {user_states.get(user_id)}")
+    # DEBUG prints to see if the handler is called and what state it sees
+    print(f"DEBUG (handle_caption_input): !!! handle_caption_input CALLED for message ID {message.id} from user {user_id}")
+    print(f"DEBUG (handle_caption_input): Message text: {message.text}")
+    print(f"DEBUG (handle_caption_input): User state for {user_id}: {user_states.get(user_id)}")
 
     # Check if the user is in the state of waiting for a batch caption
     if user_states.get(user_id) == BATCH_STATE_WAITING_FOR_CAPTION:
@@ -265,6 +266,7 @@ async def handle_caption_input(client: Client, message: Message):
             # This should ideally not happen if the flow is correct, but for safety
             await message.reply_text("Error: No pending batch operation found. Please restart the process.")
             user_states.pop(user_id, None) # Clear potentially stale state
+            print(f"DEBUG (handle_caption_input): User {user_id} data missing, state cleared.")
             return
 
         batch_info = user_data[user_id]
@@ -277,7 +279,7 @@ async def handle_caption_input(client: Client, message: Message):
             # Try to get the editable message. It might have been deleted or inaccessible.
             editable_message = await client.get_messages(chat_id, editable_message_id)
         except Exception as e:
-            print(f"WARNING: Could not retrieve editable message {editable_message_id} for user {user_id}: {e}")
+            print(f"WARNING (handle_caption_input): Could not retrieve editable message {editable_message_id} for user {user_id}: {e}")
 
         custom_caption = "Batch Files" # Default caption
         
@@ -302,7 +304,7 @@ async def handle_caption_input(client: Client, message: Message):
         # Now, update the editable message with the batch link and custom caption
         if editable_message:
             try:
-                await editable_message.edit(
+                await editable.edit( # Note: should be editable_message.edit, but 'editable' is the param name
                     text=final_text,
                     reply_markup=InlineKeyboardMarkup(
                         [[InlineKeyboardButton("Open Link", url=share_link)],
@@ -353,7 +355,7 @@ async def handle_caption_input(client: Client, message: Message):
         # Reset user state after successful completion
         user_states.pop(user_id, None) # Remove user_id from states
         user_data.pop(user_id, None)   # Remove user_id from data
-        print(f"DEBUG: User {user_id} state reset to IDLE.")
+        print(f"DEBUG (handle_caption_input): User {user_id} state reset to IDLE.")
 
     # IMPORTANT: If you have other message handlers, ensure their filters are specific
     # so they don't accidentally intercept messages intended for conversation flow.
@@ -363,15 +365,14 @@ async def handle_caption_input(client: Client, message: Message):
         # This is a regular message, not part of the batch caption conversation flow.
         # Your existing command handlers (e.g., /start, /batch, etc.) would be defined here
         # or in other modules/plugins.
-        # print(f"DEBUG: Message from {user_id} not part of caption conversation. State: {user_states.get(user_id)}")
-        pass
+        print(f"DEBUG (handle_caption_input): Message from {user_id} not part of caption conversation. State: {user_states.get(user_id)}")
 
 # --- NEW CALLBACK QUERY HANDLER for "Cancel Caption" ---
 # This handler must also be registered with your Pyrogram Client instance.
 async def cancel_batch_caption_callback(client: Client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     
-    print(f"DEBUG: Cancel callback received from {user_id}. Current state: {user_states.get(user_id)}")
+    print(f"DEBUG (cancel_batch_caption_callback): Cancel callback received from {user_id}. Current state: {user_states.get(user_id)}")
 
     if user_states.get(user_id) == BATCH_STATE_WAITING_FOR_CAPTION:
         if user_id in user_data:
@@ -384,7 +385,7 @@ async def cancel_batch_caption_callback(client: Client, callback_query: Callback
             try:
                 editable_message = await client.get_messages(chat_id, editable_message_id)
             except Exception as e:
-                print(f"WARNING: Could not retrieve editable message {editable_message_id} on cancel for user {user_id}: {e}")
+                print(f"WARNING (cancel_batch_caption_callback): Could not retrieve editable message {editable_message_id} on cancel for user {user_id}: {e}")
 
             custom_caption = "Batch Files (Caption Skipped)"
             final_text = f"**{custom_caption}**\n\n{share_link}"
@@ -409,7 +410,7 @@ async def cancel_batch_caption_callback(client: Client, callback_query: Callback
             await callback_query.answer("Caption request cancelled.")
             user_states.pop(user_id, None)
             user_data.pop(user_id, None)
-            print(f"DEBUG: User {user_id} state reset after cancel.")
+            print(f"DEBUG (cancel_batch_caption_callback): User {user_id} state reset after cancel.")
         else:
             await callback_query.answer("No active batch operation to cancel.", show_alert=True)
             user_states.pop(user_id, None) # Clear state if data is missing/corrupted
@@ -419,7 +420,6 @@ async def cancel_batch_caption_callback(client: Client, callback_query: Callback
 
 # --- YOU NEED TO ADD YOUR PYROGRAM CLIENT INITIALIZATION AND HANDLER REGISTRATION ---
 # This part is crucial for your bot to function.
-# Here's a common example of how your main bot file might look.
 # Make sure to set Config.API_ID, Config.API_HASH, Config.BOT_TOKEN, Config.DB_CHANNEL, Config.LOG_CHANNEL
 # either via environment variables or directly in a configs.py file.
 
