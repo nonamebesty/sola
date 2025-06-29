@@ -1,4 +1,4 @@
-Kurigram==2.1.35
+pyrogram
 TgCrypto
 motor
 aiofiles
