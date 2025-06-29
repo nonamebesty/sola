@@ -115,12 +115,7 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
             f"#PRIVATE_FILE:\n\n[{message.from_user.first_name}](tg://user?id={message.from_user.id}) Got File Link!",
             disable_web_page_preview=True)
         
-        duration_str = ""
-        if message.video or message.audio:
-            media_with_duration = message.video or message.audio
-            duration_in_ms = media_with_duration.duration * 1000 if media_with_duration.duration else 0
-            duration_str = f"[⏰ {TimeFormatter(duration_in_ms)}]"
-
+    
         caption = message.caption if message.caption else ""
         
         share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(file_er_id)}"
