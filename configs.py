@@ -8,7 +8,7 @@ class Config(object):
 	API_ID = 1923471
 	API_HASH = "fcdc178451cd234e63faefd38895c991"
 	BOT_TOKEN = os.environ.get("BOT_TOKEN", None)
-	BOT_USERNAME = "NammaTVSerialbot"
+	BOT_USERNAME = "NammaTVSerial1bot"
 	DB_CHANNEL = -1002461730224
 	BOT_OWNER = int(os.environ.get("BOT_OWNER", "880087645"))
 	DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb+srv://leecher:leecher@cluster0.606mkpi.mongodb.net/?retryWrites=true&w=majority")
