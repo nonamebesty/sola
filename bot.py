@@ -23,8 +23,8 @@ def some_function(url):
     return quoted_url
 
 # --- GLOBAL VARIABLES ---
-MediaList = {}          # Stores manual batches
-Group_Media_List = {}   # Stores automatic Media Group (Album) batches
+MediaList = {}   # Stores the file IDs
+BatchTasks = {}  # Stores the timer tasks to detect when you stop sending
 
 Bot = Client(
     name=Config.BOT_USERNAME,
@@ -33,6 +33,37 @@ Bot = Client(
     api_id=Config.API_ID,
     api_hash=Config.API_HASH
 )
+
+# --- TIMER FUNCTION FOR AUTO-BATCH ---
+async def send_batch_prompt(bot, user_id, chat_id):
+    try:
+        # Wait 4 seconds for more files. If a new file comes, this task is cancelled.
+        await asyncio.sleep(4)
+        
+        # If we reach here, the user stopped sending files.
+        if str(user_id) in MediaList:
+            total_files = len(MediaList[str(user_id)])
+            
+            # Send the final button
+            await bot.send_message(
+                chat_id=chat_id,
+                text=f"**Batch Created!** 📦\n\n"
+                     f"**Total Files:** `{total_files}`\n"
+                     f"I have collected your files automatically.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
+                    [InlineKeyboardButton("Clear / Cancel", callback_data="closeMessage")]
+                ])
+            )
+            
+            # Remove from tasks list since it's done
+            if str(user_id) in BatchTasks:
+                del BatchTasks[str(user_id)]
+                
+    except asyncio.CancelledError:
+        # This happens if the user sends another file before 4 seconds end
+        pass
+# -------------------------------------
 
 
 @Bot.on_message(filters.private)
@@ -106,48 +137,33 @@ async def main(bot: Client, message: Message):
                 return
 
         if message.from_user.id in Config.BANNED_USERS:
-            await message.reply_text("Sorry, You are banned!\n\nContact [Support Group](https://t.me/asuMoviefinders)",
-                                     disable_web_page_preview=True)
+            await message.reply_text("Sorry, You are banned!", disable_web_page_preview=True)
             return
-        
-        # --- NEW OPTION B: MEDIA GROUP (ALBUM) LOGIC ---
-        if message.media_group_id:
-            # If this is the FIRST message of the album we have seen
-            if message.media_group_id not in Group_Media_List:
-                Group_Media_List[message.media_group_id] = []
-                Group_Media_List[message.media_group_id].append(message.id)
-                
-                # Send ONE reply for the whole group
-                await message.reply_text(
-                    text=f"**Album Detected!** 📚\n\n"
-                         f"I am collecting the files from this album.\n"
-                         f"**Once all files finish uploading**, click the button below to get the single link.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("Get Link for Group", callback_data=f"saveGroup_{message.media_group_id}")]
-                    ]),
-                    quote=True
-                )
-            # If this is the 2nd, 3rd... message of the album, just add ID and be silent
-            else:
-                Group_Media_List[message.media_group_id].append(message.id)
-            
-            # Stop here. Don't show the Single/Batch buttons for every file.
-            return
-        # -----------------------------------------------
 
         if Config.OTHER_USERS_CAN_SAVE_FILE is False:
             return
 
-        # Regular logic for Single Files (not albums)
-        await message.reply_text(
-            text="**Choose an option from below:**",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Save in Batch", callback_data="addToBatchTrue")],
-                [InlineKeyboardButton("Single Link", callback_data="addToBatchFalse")]
-            ]),
-            quote=True,
-            disable_web_page_preview=True
-        )
+        # --- NEW TIMER AUTO-BATCH LOGIC ---
+        user_id = str(message.from_user.id)
+        
+        # 1. Initialize List if not exists
+        if user_id not in MediaList:
+            MediaList[user_id] = []
+        
+        # 2. Add current file to list
+        MediaList[user_id].append(message.id)
+        
+        # 3. Cancel existing timer (if user sent another file quickly)
+        if user_id in BatchTasks:
+            BatchTasks[user_id].cancel()
+            
+        # 4. Start a new timer (Wait 4 seconds)
+        BatchTasks[user_id] = asyncio.create_task(send_batch_prompt(bot, user_id, message.chat.id))
+        
+        # 5. Do NOT send any immediate reply. The Timer will handle it.
+        return
+        # ----------------------------------
+
 
     elif message.chat.type == enums.ChatType.CHANNEL:
         if (message.chat.id == int(Config.LOG_CHANNEL)) or (message.chat.id == int(Config.UPDATES_CHANNEL)) or message.forward_from_chat or message.forward_from:
@@ -442,38 +458,8 @@ async def button(bot: Client, cmd: CallbackQuery):
         except Exception as e:
             await cmd.answer(f"Can't Ban Him!\n\nError: {e}", show_alert=True)
 
-    # --- NEW HANDLER FOR SAVING GROUPS (ALBUMS) ---
-    elif cb_data.startswith("saveGroup_"):
-        group_id = cb_data.split("_", 1)[1]
-        message_ids = Group_Media_List.get(group_id)
-        
-        if not message_ids:
-            await cmd.answer("This group session has expired or is empty!", show_alert=True)
-            return
-            
-        await cmd.message.edit("Found all files! Generating link...")
-        # Use existing batch logic to process these IDs
-        await save_batch_media_in_channel(bot=bot, editable=cmd.message, message_ids=message_ids)
-        
-        # Clean up memory
-        if group_id in Group_Media_List:
-            del Group_Media_List[group_id]
-    # ----------------------------------------------
-
-    elif "addToBatchTrue" in cb_data:
-        if MediaList.get(f"{str(cmd.from_user.id)}", None) is None:
-            MediaList[f"{str(cmd.from_user.id)}"] = []
-        file_id = cmd.message.reply_to_message.id
-        MediaList[f"{str(cmd.from_user.id)}"].append(file_id)
-        await cmd.message.edit("File Saved in Batch!\n\n"
-                               "Press below button to get batch link.",
-                               reply_markup=InlineKeyboardMarkup([
-                                   [InlineKeyboardButton("Get Batch Link", callback_data="getBatchLink")],
-                                   [InlineKeyboardButton("Close Message", callback_data="closeMessage")]
-                               ]))
-
-    elif "addToBatchFalse" in cb_data:
-        await save_media_in_channel(bot, editable=cmd.message, message=cmd.message.reply_to_message)
+    # Note: No 'addToBatchTrue' needed anymore because the timer does it automatically.
+    # But we keep 'getBatchLink' for the button the timer sends.
 
     elif "getBatchLink" in cb_data:
         message_ids = MediaList.get(f"{str(cmd.from_user.id)}", None)
@@ -485,6 +471,8 @@ async def button(bot: Client, cmd: CallbackQuery):
         MediaList[f"{str(cmd.from_user.id)}"] = []
 
     elif "closeMessage" in cb_data:
+        # Clear the list if they cancel
+        MediaList[f"{str(cmd.from_user.id)}"] = []
         await cmd.message.delete(True)
 
     try:
