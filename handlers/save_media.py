@@ -139,7 +139,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
                 continue
             
             # Using Backticks (`) to ensure special characters don't break the message
-            file_names_list.append(f"**{len(file_names_list) + 1}.** `{media_name}`")
+            file_names_list.append(f"**{media_name}**")
             
             message_ids_str += f"{str(sent_message.id)} "
             await asyncio.sleep(2) 
