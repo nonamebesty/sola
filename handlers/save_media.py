@@ -12,7 +12,86 @@ from pyrogram.types import (
 from pyrogram.errors import FloodWait
 from handlers.helpers import str_to_b64
 
-# ... (Keep your existing TimeFormatter, humanbytes, forward_to_channel functions here) ...
+def TimeFormatter(milliseconds: int) -> str:
+    seconds, milliseconds = divmod(int(milliseconds), 1000)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    tmp = ((str(days) + " days, ") if days else "") + \
+        ((str(hours) + " hrs, ") if hours else "") + \
+        ((str(minutes) + " min, ") if minutes else "") + \
+        ((str(seconds) + " sec, ") if seconds else "") + \
+        ((str(milliseconds) + " millisec, ") if milliseconds else "")
+    return tmp[:-2]
+
+def humanbytes(size):
+    if not size:
+        return ""
+    power = 2**10
+    n = 0
+    Dic_powerN = {0: ' ', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
+    while size > power:
+        size /= power
+        n += 1
+    return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
+
+async def forward_to_channel(bot: Client, message: Message, editable: Message):
+    try:
+        __SENT = await message.forward(Config.DB_CHANNEL)
+        return __SENT
+    except FloodWait as sl:
+        if sl.value > 45:
+            await asyncio.sleep(sl.value)
+            await bot.send_message(
+                chat_id=int(Config.LOG_CHANNEL),
+                text=f"#FloodWait:\nGot FloodWait of `{str(sl.value)}s` from `{str(editable.chat.id)}` !!",
+                disable_web_page_preview=True
+            )
+        return await forward_to_channel(bot, message, editable)
+    except Exception as e:
+        print(f"Error forwarding message: {e}")
+        return None
+
+async def save_media_in_channel(bot: Client, editable: Message, message: Message):
+    try:
+        forwarded_msg = await message.forward(Config.DB_CHANNEL)
+        file_er_id = str(forwarded_msg.id)
+        
+        await forwarded_msg.reply_text(
+            f"#PRIVATE_FILE:\n\n[{message.from_user.first_name}](tg://user?id={message.from_user.id}) Got File Link!",
+            disable_web_page_preview=True
+        )
+        
+        file_size = "N/A"
+        duration_str = ""
+        caption = message.caption if message.caption else "" 
+
+        media = message.document or message.video or message.audio or message.photo
+
+        if media and hasattr(media, 'file_size') and media.file_size is not None:
+            file_size = humanbytes(media.file_size)
+        
+        if message.video or message.audio:
+            media_with_duration = message.video or message.audio
+            if media_with_duration and hasattr(media_with_duration, 'duration') and media_with_duration.duration is not None:
+                duration_in_ms = media_with_duration.duration * 1000
+                duration_str = f"[⏰ {TimeFormatter(duration_in_ms)}]"
+
+        share_link = f"https://nammatvserial.jasurun.workers.dev/?start=JAsuran_{str_to_b64(file_er_id)}"
+
+        reply_text = f"**{caption}**\n\n**Size:** {file_size} {duration_str}\n\n**Link:** {share_link}"
+
+        await editable.edit(
+            text=reply_text, 
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Open Link", url=share_link)],
+                 [InlineKeyboardButton("Bots Channel", url="https://telegram.me/AS_botzz"),
+                  InlineKeyboardButton("Support Group", url="https://telegram.me/moviekoodu1")]]
+            ),
+            disable_web_page_preview=True
+        )
+    except Exception as err:
+        await editable.edit(f"Error: {err}")
 
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
     try:
@@ -21,7 +100,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             return
 
         message_ids_str = ""
-        file_names_list = [] # List to store names/captions
+        file_names_list = []
         
         messages_to_process = []
         for msg_id in message_ids:
@@ -39,30 +118,30 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         await editable.edit(f"Processing {len(messages_to_process)} files... ⏳")
 
         for message in messages_to_process:
-            # --- 1. GET CAPTION OR FILENAME ---
-            media_name = ""
+            # --- NAME EXTRACTION LOGIC ---
+            media_name = "Unknown File"
             if message.caption:
-                # Use the first line of the caption
                 media_name = message.caption.splitlines()[0]
-                # Truncate if too long (to avoid errors)
-                if len(media_name) > 30:
-                    media_name = media_name[:30] + "..."
             elif message.document and message.document.file_name:
                 media_name = message.document.file_name
             elif message.video and message.video.file_name:
                 media_name = message.video.file_name
             elif message.audio and message.audio.file_name:
                 media_name = message.audio.file_name
-            else:
-                media_name = f"File {len(file_names_list) + 1}"
             
-            # Add to our list with a number (e.g., "1. Movie Name")
-            file_names_list.append(f"**{len(file_names_list) + 1}.** {media_name}")
-            # ----------------------------------
+            # TRUNCATE NAME IF TOO LONG
+            if len(media_name) > 30:
+                media_name = media_name[:30] + "..."
+            # -----------------------------
 
             sent_message = await forward_to_channel(bot, message, editable)
             if sent_message is None:
                 continue
+            
+            # Add to list ONLY if forward was successful
+            # WE USE BACKTICKS (`) TO PREVENT MARKDOWN ERRORS
+            file_names_list.append(f"**{len(file_names_list) + 1}.** `{media_name}`")
+            
             message_ids_str += f"{str(sent_message.id)} "
             await asyncio.sleep(2) 
 
@@ -80,8 +159,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         )
         share_link = f"https://nammatvserial.jasurun.workers.dev?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
 
-        # --- 2. CREATE FINAL TEXT WITH NAMES ---
-        # Join the list with new lines
+        # --- FINAL TEXT GENERATION ---
         files_summary = "\n".join(file_names_list)
         
         final_text = (
@@ -90,15 +168,14 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             f"**Link:** {share_link}"
         )
         
-        # Telegram Message Limit Check (4096 chars)
-        # If list is too long, we show a simplified version
+        # Safety Check for Telegram Message Limit (4096 chars)
         if len(final_text) > 4000:
              final_text = (
                 f"**Batch Link Created!** ✅\n\n"
                 f"__List contains {len(file_names_list)} files.__\n\n"
                 f"**Link:** {share_link}"
             )
-        # ---------------------------------------
+        # -----------------------------
 
         await editable.edit(
             final_text,
@@ -111,5 +188,5 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         )
         
     except Exception as err:
-        # ... (Your existing error handling) ...
+        traceback.print_exc()
         await editable.edit(f"Error: {err}")
