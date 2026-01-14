@@ -159,12 +159,11 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         share_link = f"https://nammatvserial.jasurun.workers.dev?start=JAsuran_{str_to_b64(str(SaveMessage.id))}"
 
         # --- FINAL TEXT GENERATION ---
-        files_summary = "\n".join(file_names_list)
+        files_summary = "\n\n".join(file_names_list)
         
         final_text = (
-            f"**Batch Link Created!** ✅\n\n"
-            f"{files_summary}\n\n"
-            f"**Link:** {share_link}"
+            f"**{files_summary}\n\n**"
+            f"**{share_link}**"
         )
         
         # Safety Check: If total message is > 4096 chars, we MUST fallback to summary
