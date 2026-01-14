@@ -118,8 +118,10 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         await editable.edit(f"Processing {len(messages_to_process)} files... ⏳")
 
         for message in messages_to_process:
-            # --- NAME EXTRACTION LOGIC ---
+            # --- NAME EXTRACTION LOGIC (FULL NAME) ---
             media_name = "Unknown File"
+            
+            # Priority: Caption -> Document Name -> Video Name -> Audio Name
             if message.caption:
                 media_name = message.caption.splitlines()[0]
             elif message.document and message.document.file_name:
@@ -129,17 +131,14 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             elif message.audio and message.audio.file_name:
                 media_name = message.audio.file_name
             
-            # TRUNCATE NAME IF TOO LONG
-            if len(media_name) > 30:
-                media_name = media_name[:30] + "..."
+            # REMOVED TRUNCATION LOGIC (Shows entire name)
             # -----------------------------
 
             sent_message = await forward_to_channel(bot, message, editable)
             if sent_message is None:
                 continue
             
-            # Add to list ONLY if forward was successful
-            # WE USE BACKTICKS (`) TO PREVENT MARKDOWN ERRORS
+            # Using Backticks (`) to ensure special characters don't break the message
             file_names_list.append(f"**{len(file_names_list) + 1}.** `{media_name}`")
             
             message_ids_str += f"{str(sent_message.id)} "
@@ -168,11 +167,12 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
             f"**Link:** {share_link}"
         )
         
-        # Safety Check for Telegram Message Limit (4096 chars)
-        if len(final_text) > 4000:
+        # Safety Check: If total message is > 4096 chars, we MUST fallback to summary
+        if len(final_text) > 4096:
              final_text = (
                 f"**Batch Link Created!** ✅\n\n"
-                f"__List contains {len(file_names_list)} files.__\n\n"
+                f"__List contains {len(file_names_list)} files.__\n"
+                f"__(Names hidden because the list is too long for Telegram)__\n\n"
                 f"**Link:** {share_link}"
             )
         # -----------------------------
