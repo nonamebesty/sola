@@ -98,6 +98,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         if not Config.DB_CHANNEL:
             await editable.edit("Bot owner has not configured the DB_CHANNEL.")
             return
+            await editable.edit("Asuran Bot counting your files... 🧐")
 
         message_ids_str = ""
         file_names_list = []
