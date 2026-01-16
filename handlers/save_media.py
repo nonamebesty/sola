@@ -95,6 +95,8 @@ async def save_media_in_channel(bot: Client, editable: Message, message: Message
 
 async def save_batch_media_in_channel(bot: Client, editable: Message, message_ids: list):
     try:
+
+        await editable.edit("Asuran Bot counting your files... 🧐")
         if not Config.DB_CHANNEL:
             await editable.edit("Bot owner has not configured the DB_CHANNEL.")
             return
@@ -102,7 +104,7 @@ async def save_batch_media_in_channel(bot: Client, editable: Message, message_id
         # --- UPDATE START: Counting Message with Delay ---
         try:
             # Edit text to "Counting..."
-            await editable.edit("Asuran Bot counting your files... 🧐")
+            await editable.edit("Asuran Bot collecting captions... 🧐")
             # Wait 1 second so the user actually sees this message
             await asyncio.sleep(1) 
         except Exception:
