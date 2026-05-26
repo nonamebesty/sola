@@ -10,7 +10,7 @@ class Config(object):
 	BOT_TOKEN = os.environ.get("BOT_TOKEN", None)
 	BOT_USERNAME = "NammaTVSerial1bot"
 	DB_CHANNEL = -1002461730224
-	BOT_OWNER = int(os.environ.get("BOT_OWNER", "880087645"))
+	BOT_OWNER = int(os.environ.get("BOT_OWNER", "8981610607"))
 	DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb+srv://leecher:leecher@cluster0.606mkpi.mongodb.net/?retryWrites=true&w=majority")
 	UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "moviekaadu1")
 	LOG_CHANNEL = "-1001966055101"
