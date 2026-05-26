@@ -8,12 +8,12 @@ class Config(object):
 	API_ID = 1923471
 	API_HASH = "fcdc178451cd234e63faefd38895c991"
 	BOT_TOKEN = os.environ.get("BOT_TOKEN", None)
-	BOT_USERNAME = "NammaTVSerial1bot"
-	DB_CHANNEL = -1002461730224
+	BOT_USERNAME = "NammaTVSerial2bot"
+	DB_CHANNEL = -1003801606506
 	BOT_OWNER = int(os.environ.get("BOT_OWNER", "8981610607"))
 	DATABASE_URL = os.environ.get("DATABASE_URL", "mongodb+srv://leecher:leecher@cluster0.606mkpi.mongodb.net/?retryWrites=true&w=majority")
-	UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "moviekaadu1")
-	LOG_CHANNEL = "-1001966055101"
+	UPDATES_CHANNEL = os.environ.get("UPDATES_CHANNEL", "moviesearchgrp")
+	LOG_CHANNEL = "-1003999417050"
 	BANNED_USERS = set(int(x) for x in os.environ.get("BANNED_USERS", "1234567890").split())
 	FORWARD_AS_COPY = bool(os.environ.get("FORWARD_AS_COPY", True))
 	BROADCAST_AS_COPY = bool(os.environ.get("BROADCAST_AS_COPY", True))
@@ -35,9 +35,9 @@ Send me any file I will save it in my Database. Also works for channel. Add me t
 
 🧑🏻‍💻 **Developer:** @JAsuran2p0
 
-👥 **Support Group:** [Catchme](https://t.me/jasuranbots)
+👥 **Support Group:** [Catchme](https://t.me/moviesearchgrp)
 
-📢 **Updates Channel:** [JAsuran Serials](https://t.me/JAsuranserials)
+📢 **Updates Channel:** [JAsuran Serials](https://t.me/moviesearchgrp)
 """
 	ABOUT_DEV_TEXT = f"""
 🧑🏻‍💻 **Developer:** @JAsuran2p0
