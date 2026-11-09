@@ -18,6 +18,18 @@ from handlers.broadcast_handlers import main_broadcast_handler
 from handlers.save_media import save_media_in_channel, save_batch_media_in_channel
 from urllib.parse import quote as url_quote
 
+#import asyncio
+
+# Create and set a new event loop before importing Pyrogram
+try:
+  loop = asyncio.get_event_loop()
+except RuntimeError:
+  loop = asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
+
+#from pyrogram import Client, enums, filters
+
+
 def some_function(url):
     quoted_url = url_quote(url)
     return quoted_url
